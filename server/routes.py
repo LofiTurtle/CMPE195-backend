@@ -1,7 +1,26 @@
-from flask import jsonify
+from flask import jsonify, request
 
 from server import app
 from server.services.discord_services import fetch_discord_account_data
+
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    # TODO actual implementation
+    # For now, just check if username is "username" and password is "password"
+    data = request.get_json()
+    username = data['username']
+    password = data['password']
+    if username == 'username' and password == 'password':
+        return jsonify(success=True, data='logged in successfully')
+
+    return jsonify(success=False, data='invalid username or password'), 401
+
+
+@app.route('/auth/refresh', methods=['POST'])
+def refresh():
+    # TODO actual implementation
+    return jsonify(data='refresh successful')
 
 
 @app.route('/api/hello')
