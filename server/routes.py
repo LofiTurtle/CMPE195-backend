@@ -1,26 +1,57 @@
 from flask import jsonify, request
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 
-from server import app
-from server.services.discord_services import fetch_discord_account_data
+from server import app, db
+from server.models import User
+from server.services import fetch_discord_account_data, validate_password
+
+
+@app.route('/auth/register', methods=['POST'])
+def register():
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
+
+    if username is None or password is None:
+        return jsonify(success=False, msg='Username or password not provided'), 400
+
+    user = User.query.filter_by(username=username).first()
+    if user is not None:
+        return jsonify(success=False, msg='Username already taken'), 409
+
+    if not validate_password(password):
+        return jsonify(success=False, msg='Invalid password'), 400
+
+    user = User(username, password)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(success=True, msg='User created successfully'), 201
 
 
 @app.route('/auth/login', methods=['POST'])
 def login():
     # TODO actual implementation
     # For now, just check if username is "username" and password is "password"
-    data = request.get_json()
-    username = data['username']
-    password = data['password']
-    if username == 'username' and password == 'password':
-        return jsonify(success=True, data='logged in successfully')
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
 
-    return jsonify(success=False, data='invalid username or password'), 401
+    if username is None or password is None:
+        return jsonify(success=False, msg='Username or password not provided'), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return jsonify(success=False, msg='Invalid username or password'), 401
+
+    access_token = create_access_token(identity=user.id, fresh=True)
+    refresh_token = create_refresh_token(identity=user.id)
+    return jsonify(success=True, access_token=access_token, refresh_token=refresh_token, msg='Logged in successfully'), 200
 
 
 @app.route('/auth/refresh', methods=['POST'])
+@jwt_required(refresh=True)
 def refresh():
-    # TODO actual implementation
-    return jsonify(data='refresh successful')
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity, fresh=False)
+    return jsonify(success=True, access_token=access_token, msg='Refresh successful'), 200
 
 
 @app.route('/api/hello')
