@@ -12,3 +12,6 @@ db.init_app(app)
 jwt = JWTManager(app)
 
 import server.routes
+
+with app.app_context():
+    db.create_all()
