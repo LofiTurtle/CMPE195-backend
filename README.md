@@ -10,3 +10,5 @@
 ## Running
 
 Activate the virtual environment if it isn't already, then use `flask run` to start the dev server.
+
+To reset the database, run the `init-db.py` script or delete the `/instance/project.db` file.
