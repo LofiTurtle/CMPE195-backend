@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 
 from server import app, db
 from server.models import User
@@ -8,6 +8,11 @@ from server.services import fetch_discord_account_data, validate_password
 
 @app.route('/auth/register', methods=['POST'])
 def register():
+    """
+    Creates a new user account. Accepts JSON payload with `username` and `password` fields.
+    :return: Access token and refresh token on successful account creation, or error message on failure, indicated by
+    the `success` field.
+    """
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 
@@ -29,7 +34,10 @@ def register():
 
 @app.route('/auth/login', methods=['POST'])
 def login():
-    # TODO actual implementation
+    """
+    Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
+    :return: Access token and refresh token on successful authentication, indicated by the `success` field.
+    """
     # For now, just check if username is "username" and password is "password"
     username = request.json.get('username', None)
     password = request.json.get('password', None)
@@ -49,6 +57,12 @@ def login():
 @app.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
+    """
+    Generates a new access token. A valid refresh token is required in the authorization header.
+
+    Header format is `Authorization: Bearer [refresh_token]`
+    :return: The new access token.
+    """
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity, fresh=False)
     return jsonify(success=True, access_token=access_token, msg='Refresh successful'), 200

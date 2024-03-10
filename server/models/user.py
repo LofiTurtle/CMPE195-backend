@@ -5,6 +5,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User(db.Model):
+    """
+    Model for general account information for a user.
+    """
+
     __tablename__ = 'user'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -26,6 +30,10 @@ class User(db.Model):
 
 
 class UserProfile(db.Model):
+    """
+    Model for information about a user's profile.
+    """
+
     __tablename__ = 'user_profile'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -36,11 +44,19 @@ class UserProfile(db.Model):
 
 
 class OAuthProvider(Enum):
+    """
+    Enum to hold the names of all valid OAuth providers.
+    """
+
     DISCORD = 'discord'
     STEAM = 'steam'
 
 
 class UserToken(db.Model):
+    """
+    Model to store a user's access and refresh tokens for an OAuth provider.
+    """
+
     __tablename__ = 'user_token'
 
     id = db.Column(db.Integer, primary_key=True)
