@@ -1,10 +1,10 @@
-from flask import jsonify, request
-from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask import jsonify, request, redirect, make_response
+from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 
 from server import app, db
 from server.models import User
 from server.services import fetch_discord_account_data, validate_password
-
+from pysteamsignin.steamsignin import SteamSignIn
 
 @app.route('/auth/register', methods=['POST'])
 def register():
@@ -78,3 +78,31 @@ def get_discord_account(user_id):
     # TODO set this up with real data
     print(f'would have retrieved discord info for user {user_id}')
     return jsonify(fetch_discord_account_data(user_id))
+
+@app.route('/api/steamlogin')
+def steam_login():
+    received_access_token = request.headers['jwt']
+    steamLogin = SteamSignIn()
+    # Flask expects an explicit return on the route.
+    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin'))
+
+
+@app.route('/processlogin')
+def process():
+
+    return_data = request.values
+
+    steamLogin = SteamSignIn()
+    steam_id = steamLogin.ValidateResults(return_data)
+    values = decode_token(received_access_token)
+    print(values)
+    print('SteamID returned is: ', steam_id)
+
+    # if steam_id is not False:
+    #     return 'We logged in successfully!<br />SteamID: {0}'.format(steam_id)
+    # else:
+    #     return 'Failed to log in, bad details?'
+
+    # At this point, redirect the user to a friendly URL
+
+    return redirect('http://localhost:5173/Dashboard')
