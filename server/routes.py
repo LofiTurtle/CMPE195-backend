@@ -21,10 +21,14 @@ def register():
     if not validate_password(password):
         return jsonify(success=False, msg='Invalid password'), 400
 
+    # TODO create UserProfile as well
     user = User(username, password)
     db.session.add(user)
     db.session.commit()
-    return jsonify(success=True, msg='User created successfully'), 201
+
+    access_token = create_access_token(identity=user.id, fresh=True)
+    refresh_token = create_refresh_token(identity=user.id)
+    return jsonify(success=True, access_token=access_token, refresh_token=refresh_token, msg='User created successfully'), 201
 
 
 @app.route('/auth/login', methods=['POST'])
@@ -54,9 +58,15 @@ def refresh():
     return jsonify(success=True, access_token=access_token, msg='Refresh successful'), 200
 
 
-@app.route('/api/hello')
-def api_hello():
-    return jsonify(data='Hello from the flask API')
+@app.route('/api/me', methods=['GET'])
+@jwt_required()
+def me():
+    """
+    Returns information about the current user
+    """
+    identity = get_jwt_identity()
+    user = User.query.filter_by(id=identity).first()
+    return jsonify(username=user.username)
 
 
 @app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})
