@@ -1,8 +1,10 @@
 from flask import jsonify, request, redirect, make_response
-from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
+    get_jwt_identity, set_access_cookies, set_refresh_cookies
 
 from server import app, db
 from server.models import User
+from server.models.post import Post
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -28,13 +30,14 @@ def register():
 
     access_token = create_access_token(identity=user.id, fresh=True)
     refresh_token = create_refresh_token(identity=user.id)
-    return jsonify(success=True, access_token=access_token, refresh_token=refresh_token, msg='User created successfully'), 201
+    response = jsonify(success=True, msg='User created successfully')
+    set_access_cookies(response, access_token)
+    set_refresh_cookies(response, refresh_token)
+    return response, 201
 
 
 @app.route('/auth/login', methods=['POST'])
 def login():
-    # TODO actual implementation
-    # For now, just check if username is "username" and password is "password"
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 
@@ -62,11 +65,43 @@ def refresh():
 @jwt_required()
 def me():
     """
-    Returns information about the current user
+    :return: Information about the current user
     """
     identity = get_jwt_identity()
     user = User.query.filter_by(id=identity).first()
-    return jsonify(username=user.username)
+    if not user:
+        return jsonify(msg='User not found'), 404
+    return jsonify(data=user.serialize())
+
+
+@app.route('/api/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    return jsonify(data=user.serialize())
+
+
+@app.route('/api/homepage', methods=['GET'])
+def homepage():
+    """
+    :return: Posts for this user's homepage
+    """
+    # TODO return only posts from the user's followed communities, not all communities
+    # TODO support different sorting orders
+    homepage_posts = Post.query.order_by(Post.created_at.desc()).limit(10)
+    return jsonify(data=[post.serialize() for post in homepage_posts])
+
+
+@app.route('/api/post/<int:post_id>', methods=['GET'])
+def posts(post_id):
+    """
+    :return: The post with the given ID
+    """
+    post = Post.query.filter_by(id=post_id).first()
+    if not post:
+        return jsonify(msg='Post not found'), 404
+    return jsonify(data=post.serialize())
 
 
 @app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})

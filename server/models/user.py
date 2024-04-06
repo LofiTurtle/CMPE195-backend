@@ -13,10 +13,17 @@ class User(db.Model):
 
     profile = db.relationship('UserProfile', uselist=False, back_populates='user')
     tokens = db.relationship('UserToken', back_populates='user')
+    posts = db.relationship('Post', back_populates='author')
+    liked_posts = db.relationship('Post', secondary='post_likes', back_populates='likes')
+    comments = db.relationship('Comment', back_populates='author')
+    liked_comments = db.relationship('Comment', secondary='comment_likes', back_populates='likes')
+    communities = db.relationship('Community', secondary='user_communities', back_populates='users')
 
     def __init__(self, username, password):
         self.username = username
         self.password_hash = generate_password_hash(password)
+        self.profile = UserProfile()
+        self.profile.bio = 'This is a default bio.'
 
     def set_password(self, password) -> None:
         self.password_hash = generate_password_hash(password)
@@ -24,23 +31,43 @@ class User(db.Model):
     def check_password(self, password) -> bool:
         return check_password_hash(self.password_hash, password)
 
+    def serialize(self):
+        """Return object data in JSON format"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'profile': self.profile.serialize(),
+        }
+
 
 class UserProfile(db.Model):
     __tablename__ = 'user_profile'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    bio = db.Column(db.String(1024), nullable=False)
     # TODO other profile information
 
     user = db.relationship('User', uselist=False, back_populates='profile')
 
+    def serialize(self):
+        """Return object data in JSON format"""
+        return {
+            'bio': self.bio
+        }
+
 
 class OAuthProvider(Enum):
+    """
+    Supported providers for OAuth 2.0
+    """
     DISCORD = 'discord'
-    STEAM = 'steam'
 
 
 class UserToken(db.Model):
+    """
+    Stores a token associated with a user for a 3rd party service
+    """
     __tablename__ = 'user_token'
 
     id = db.Column(db.Integer, primary_key=True)
