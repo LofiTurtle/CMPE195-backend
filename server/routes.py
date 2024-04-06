@@ -32,7 +32,6 @@ def register():
     refresh_token = create_refresh_token(identity=user.id)
     response = jsonify(success=True, msg='User created successfully')
     set_access_cookies(response, access_token)
-    set_refresh_cookies(response, refresh_token)
     return response, 201
 
 
@@ -49,16 +48,7 @@ def login():
         return jsonify(success=False, msg='Invalid username or password'), 401
 
     access_token = create_access_token(identity=user.id, fresh=True)
-    refresh_token = create_refresh_token(identity=user.id)
     return jsonify(success=True, access_token=access_token, refresh_token=refresh_token, msg='Logged in successfully'), 200
-
-
-@app.route('/auth/refresh', methods=['POST'])
-@jwt_required(refresh=True)
-def refresh():
-    identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity, fresh=False)
-    return jsonify(success=True, access_token=access_token, msg='Refresh successful'), 200
 
 
 @app.route('/api/me', methods=['GET'])
