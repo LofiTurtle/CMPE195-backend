@@ -5,6 +5,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User(db.Model):
+    """
+    Model for general account information for a user.
+    """
+
     __tablename__ = 'user'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -41,6 +45,10 @@ class User(db.Model):
 
 
 class UserProfile(db.Model):
+    """
+    Model for information about a user's profile.
+    """
+
     __tablename__ = 'user_profile'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -66,7 +74,7 @@ class OAuthProvider(Enum):
 
 class UserToken(db.Model):
     """
-    Stores a token associated with a user for a 3rd party service
+    Stores a user's access and refresh tokens for an OAuth provider.
     """
     __tablename__ = 'user_token'
 

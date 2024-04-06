@@ -1,6 +1,8 @@
+
 from flask import jsonify, request, redirect, make_response
 from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
     get_jwt_identity, set_access_cookies, set_refresh_cookies
+
 
 from server import app, db
 from server.models import User
@@ -10,6 +12,11 @@ from pysteamsignin.steamsignin import SteamSignIn
 
 @app.route('/auth/register', methods=['POST'])
 def register():
+    """
+    Creates a new user account. Accepts JSON payload with `username` and `password` fields.
+    :return: Access token and refresh token on successful account creation, or error message on failure, indicated by
+    the `success` field.
+    """
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 
@@ -37,6 +44,10 @@ def register():
 
 @app.route('/auth/login', methods=['POST'])
 def login():
+    """
+    Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
+    :return: Access token and refresh token on successful authentication, indicated by the `success` field.
+    """
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 
