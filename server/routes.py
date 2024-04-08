@@ -36,7 +36,6 @@ def register():
     db.session.commit()
 
     access_token = create_access_token(identity=user.id, fresh=True)
-    refresh_token = create_refresh_token(identity=user.id)
     response = jsonify(success=True, msg='User created successfully')
     set_access_cookies(response, access_token)
     return response, 201
@@ -59,7 +58,9 @@ def login():
         return jsonify(success=False, msg='Invalid username or password'), 401
 
     access_token = create_access_token(identity=user.id, fresh=True)
-    return jsonify(success=True, access_token=access_token, refresh_token=refresh_token, msg='Logged in successfully'), 200
+    response = jsonify(success=True, msg='Logged in successfully')
+    set_access_cookies(response, access_token)
+    return response, 200
 
 
 @app.route('/api/me', methods=['GET'])
@@ -72,7 +73,7 @@ def me():
     user = User.query.filter_by(id=identity).first()
     if not user:
         return jsonify(msg='User not found'), 404
-    return jsonify(data=user.serialize())
+    return jsonify(user.serialize())
 
 
 @app.route('/api/user/<int:user_id>', methods=['GET'])
