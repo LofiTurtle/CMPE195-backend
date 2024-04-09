@@ -1,4 +1,5 @@
 from enum import Enum
+from operator import index
 
 from server import db
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -63,6 +64,15 @@ class UserProfile(db.Model):
         return {
             'bio': self.bio
         }
+
+
+class InvalidatedToken(db.Model):
+    """Stores invalidated JWT tokens, e.g. for when a user logs out"""
+    __tablename__ = 'invalidated_token'
+
+    id = db.Column(db.Integer, primary_key=True)
+    token_id = db.Column(db.String(36), nullable=False, index=True)
+    expired_at = db.Column(db.DateTime, nullable=False)
 
 
 class OAuthProvider(Enum):

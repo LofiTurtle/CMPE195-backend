@@ -1,12 +1,11 @@
+from datetime import datetime
 
 from flask import jsonify, request, redirect, make_response
 from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
-    get_jwt_identity, set_access_cookies, set_refresh_cookies
+    get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
-
-from server import app, db
-from server.models import User
-from server.models.post import Post
+from server import app, db, jwt
+from server.models import User, Post, InvalidatedToken
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -60,6 +59,26 @@ def login():
     access_token = create_access_token(identity=user.id, fresh=True)
     response = jsonify(success=True, msg='Logged in successfully')
     set_access_cookies(response, access_token)
+    return response, 200
+
+
+@jwt.token_in_blocklist_loader
+def is_token_revoked(jwt_headers, jwt_payload):
+    """Checks if the token is revoked."""
+    jti = jwt_payload['jti']
+    token = db.session.query(InvalidatedToken).filter_by(token_id=jti).first()
+    return token is not None
+
+
+@app.route('/api/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """Logs a user out, removing the access token cookie and revoking the token."""
+    token = get_jwt()
+    db.session.add(InvalidatedToken(token_id=token['jti'], expired_at=datetime.fromtimestamp(token['exp'])))
+    db.session.commit()
+    response = jsonify(msg='Logged out successfully')
+    unset_access_cookies(response)
     return response, 200
 
 
