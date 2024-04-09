@@ -15,4 +15,3 @@ import server.routes
 
 with app.app_context():
     db.create_all()
-
