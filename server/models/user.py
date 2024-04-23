@@ -23,7 +23,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
 
     profile = db.relationship('UserProfile', uselist=False, back_populates='user')
-    tokens = db.relationship('UserToken', back_populates='user')
+    connected_accounts = db.relationship('ConnectedAccount', back_populates='user')
     posts = db.relationship('Post', back_populates='author')
     liked_posts = db.relationship('Post', secondary='post_likes', back_populates='likes')
     comments = db.relationship('Comment', back_populates='author')
@@ -62,6 +62,7 @@ class User(db.Model):
             'id': self.id,
             'username': self.username,
             'profile': self.profile.serialize(),
+            'connected_accounts': [account.serialize() for account in self.connected_accounts],
         }
 
 
@@ -83,7 +84,8 @@ class UserProfile(db.Model):
     def serialize(self):
         """Return object data in JSON format"""
         return {
-            'bio': self.bio
+            'bio': self.bio,
+            'profile_picture_id': self.profile_picture_id
         }
 
 
@@ -98,22 +100,30 @@ class InvalidatedToken(db.Model):
 
 class OAuthProvider(Enum):
     """
-    Supported providers for OAuth 2.0
+    Supported providers for OAuth 2.0, also used as provider's display name
     """
-    DISCORD = 'discord'
+    DISCORD = 'Discord'
 
 
-class UserToken(db.Model):
-    """
-    Stores a user's access and refresh tokens for an OAuth provider.
-    """
-    __tablename__ = 'user_token'
+class ConnectedAccount(db.Model):
+    """Stores connected accounts for a user"""
+    __tablename__ = 'connected_account'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username = db.Column(db.String(128), nullable=False)
     provider = db.Column(db.Enum(OAuthProvider), nullable=False)
     access_token = db.Column(db.Text, nullable=False)
     refresh_token = db.Column(db.Text, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
 
-    user = db.relationship('User', uselist=False, back_populates='tokens')
+    user = db.relationship('User', uselist=False, back_populates='connected_accounts')
+
+    def serialize(self):
+        """Return object data in JSON format"""
+        return {
+            'username': self.username,
+            'provider': self.provider.value
+        }
+
+# TODO store gameplay history and other info related to ConnectedAccount
