@@ -75,6 +75,7 @@ class UserProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     bio = db.Column(db.String(1024), nullable=False)
+    profile_picture_id = db.Column(db.String(36), nullable=True)
     # TODO other profile information
 
     user = db.relationship('User', uselist=False, back_populates='profile')

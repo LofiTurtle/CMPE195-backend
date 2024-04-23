@@ -5,7 +5,7 @@ from flask_jwt_extended import JWTManager, decode_token, create_access_token, cr
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
 from server import app, db, jwt
-from server.models import User, Post, InvalidatedToken
+from server.models import User, Post, InvalidatedToken, Community
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -101,6 +101,24 @@ def get_user(user_id):
     if not user:
         return jsonify(msg='User not found'), 404
     return jsonify(data=user.serialize())
+
+
+@app.route('/api/user/<int:user_id>/posts', methods=['GET'])
+def get_user_posts(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    user_posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in user_posts])
+
+
+@app.route('/api/community/<int:community_id>/posts', methods=['GET'])
+def get_community_posts(community_id):
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+    community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in community_posts])
 
 
 @app.route('/api/homepage', methods=['GET'])
