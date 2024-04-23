@@ -17,6 +17,10 @@ if __name__ == '__main__':
         user2 = User(username='user2', password='password2')
         user3 = User(username='user3', password='password3')
 
+        # everyone else follows user1
+        user1.followers.append(user2)
+        user3.following.append(user1)
+
         # 2 default communities, 1 with all users in it and another empty
         community1 = Community(name='Popular Community')
         community2 = Community(name='Unpopular Community')

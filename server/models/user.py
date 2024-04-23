@@ -5,6 +5,12 @@ from server import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+user_following = db.Table('user_following',
+                          db.Column('follower_id', db.Integer, db.ForeignKey('user.id')),
+                          db.Column('followed_id', db.Integer, db.ForeignKey('user.id'))
+                          )
+
+
 class User(db.Model):
     """
     Model for general account information for a user.
@@ -23,6 +29,20 @@ class User(db.Model):
     comments = db.relationship('Comment', back_populates='author')
     liked_comments = db.relationship('Comment', secondary='comment_likes', back_populates='likes')
     communities = db.relationship('Community', secondary='user_communities', back_populates='users')
+    following = db.relationship(
+        'User',
+        secondary=user_following,
+        primaryjoin=(id == user_following.c.follower_id),
+        secondaryjoin=(id == user_following.c.followed_id),
+        back_populates='followers'
+    )
+    followers = db.relationship(
+        'User',
+        secondary=user_following,
+        primaryjoin=(id == user_following.c.followed_id),
+        secondaryjoin=(id == user_following.c.follower_id),
+        back_populates='following'
+    )
 
     def __init__(self, username, password):
         self.username = username
