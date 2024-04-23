@@ -9,7 +9,7 @@ from server.models import User, Post, InvalidatedToken, Community
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
-@app.route('/auth/register', methods=['POST'])
+@app.route('/auth/register/', methods=['POST'])
 def register():
     """
     Creates a new user account. Accepts JSON payload with `username` and `password` fields.
@@ -40,7 +40,7 @@ def register():
     return response, 201
 
 
-@app.route('/auth/login', methods=['POST'])
+@app.route('/auth/login/', methods=['POST'])
 def login():
     """
     Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
@@ -70,7 +70,7 @@ def is_token_revoked(jwt_headers, jwt_payload):
     return token is not None
 
 
-@app.route('/api/logout', methods=['POST'])
+@app.route('/api/logout/', methods=['POST'])
 @jwt_required()
 def logout():
     """Logs a user out, removing the access token cookie and revoking the token."""
@@ -82,7 +82,7 @@ def logout():
     return response, 200
 
 
-@app.route('/api/me', methods=['GET'])
+@app.route('/api/me/', methods=['GET'])
 @jwt_required()
 def me():
     """
@@ -95,7 +95,7 @@ def me():
     return jsonify(user.serialize())
 
 
-@app.route('/api/user/<int:user_id>', methods=['GET'])
+@app.route('/api/user/<int:user_id>/', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -103,7 +103,7 @@ def get_user(user_id):
     return jsonify(data=user.serialize())
 
 
-@app.route('/api/user/<int:user_id>/posts', methods=['GET'])
+@app.route('/api/user/<int:user_id>/posts/', methods=['GET'])
 def get_user_posts(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -112,7 +112,7 @@ def get_user_posts(user_id):
     return jsonify(data=[post.serialize() for post in user_posts])
 
 
-@app.route('/api/community/<int:community_id>/posts', methods=['GET'])
+@app.route('/api/community/<int:community_id>/posts/', methods=['GET'])
 def get_community_posts(community_id):
     community = Community.query.filter_by(id=community_id).first()
     if not community:
@@ -121,7 +121,7 @@ def get_community_posts(community_id):
     return jsonify(data=[post.serialize() for post in community_posts])
 
 
-@app.route('/api/homepage', methods=['GET'])
+@app.route('/api/homepage/', methods=['GET'])
 def homepage():
     """
     :return: Posts for this user's homepage
@@ -132,7 +132,7 @@ def homepage():
     return jsonify(data=[post.serialize() for post in homepage_posts])
 
 
-@app.route('/api/post/<int:post_id>', methods=['GET'])
+@app.route('/api/post/<int:post_id>/', methods=['GET'])
 def posts(post_id):
     """
     :return: The post with the given ID
@@ -144,7 +144,7 @@ def posts(post_id):
 
 
 @app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/<string:user_id>', methods=['GET'])
+@app.route('/api/linked-accounts/<string:user_id>/', methods=['GET'])
 def get_linked_accounts(user_id):
     if user_id is None:
         # TODO use session to get current user ID
@@ -157,21 +157,21 @@ def get_linked_accounts(user_id):
 
 
 @app.route('/api/linked-accounts/discord/', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/discord/<string:user_id>', methods=['GET'])
+@app.route('/api/linked-accounts/discord/<string:user_id>/', methods=['GET'])
 def get_discord_account(user_id):
     # TODO set this up with real data
     print(f'would have retrieved discord info for user {user_id}')
     return jsonify(fetch_discord_account_data(user_id))
 
-@app.route('/api/steamlogin')
+@app.route('/api/steamlogin/')
 def steam_login():
     received_access_token = request.headers['jwt']
     steamLogin = SteamSignIn()
     # Flask expects an explicit return on the route.
-    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin'))
+    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin/'))
 
 
-@app.route('/processlogin')
+@app.route('/processlogin/')
 def process():
 
     return_data = request.values
@@ -189,4 +189,4 @@ def process():
 
     # At this point, redirect the user to a friendly URL
 
-    return redirect('http://localhost:5173/Dashboard')
+    return redirect('http://localhost:5173/Dashboard/')
