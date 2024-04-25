@@ -73,7 +73,7 @@ class Post(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'community': self.community.serialize(),
-            'author': self.author.serialize(),
+            'author_id': self.author.id,
             'comments': [comment.serialize() for comment in self.comments],
             'num_likes': len(self.likes)
         }
@@ -111,7 +111,7 @@ class Comment(db.Model):
             'content': self.content,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'author': self.author.serialize(),
+            'author_id': self.author.id,
             'post_id': self.post_id,
             'num_likes': len(self.likes)
         }

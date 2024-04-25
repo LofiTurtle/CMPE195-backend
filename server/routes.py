@@ -5,11 +5,11 @@ from flask_jwt_extended import JWTManager, decode_token, create_access_token, cr
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
 from server import app, db, jwt
-from server.models import User, Post, Comment, InvalidatedToken
+from server.models import User, Post, Comment, InvalidatedToken, Community
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
-@app.route('/auth/register', methods=['POST'])
+@app.route('/auth/register/', methods=['POST'])
 def register():
     """
     Creates a new user account. Accepts JSON payload with `username` and `password` fields.
@@ -40,7 +40,7 @@ def register():
     return response, 201
 
 
-@app.route('/auth/login', methods=['POST'])
+@app.route('/auth/login/', methods=['POST'])
 def login():
     """
     Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
@@ -82,7 +82,7 @@ def logout():
     return response, 200
 
 
-@app.route('/api/me', methods=['GET'])
+@app.route('/api/me/', methods=['GET'])
 @jwt_required()
 def me():
     """
@@ -95,7 +95,7 @@ def me():
     return jsonify(user.serialize())
 
 
-@app.route('/api/user/<int:user_id>', methods=['GET'])
+@app.route('/api/user/<int:user_id>/', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -103,7 +103,25 @@ def get_user(user_id):
     return jsonify(data=user.serialize())
 
 
-@app.route('/api/homepage', methods=['GET'])
+@app.route('/api/user/<int:user_id>/posts/', methods=['GET'])
+def get_user_posts(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    user_posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in user_posts])
+
+
+@app.route('/api/community/<int:community_id>/posts/', methods=['GET'])
+def get_community_posts(community_id):
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+    community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in community_posts])
+
+
+@app.route('/api/homepage/', methods=['GET'])
 def homepage():
     """
     :return: Posts for this user's homepage
@@ -126,7 +144,7 @@ def homepage():
 
 
 @app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/<string:user_id>', methods=['GET'])
+@app.route('/api/linked-accounts/<string:user_id>/', methods=['GET'])
 def get_linked_accounts(user_id):
     if user_id is None:
         # TODO use session to get current user ID
@@ -139,21 +157,21 @@ def get_linked_accounts(user_id):
 
 
 @app.route('/api/linked-accounts/discord/', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/discord/<string:user_id>', methods=['GET'])
+@app.route('/api/linked-accounts/discord/<string:user_id>/', methods=['GET'])
 def get_discord_account(user_id):
     # TODO set this up with real data
     print(f'would have retrieved discord info for user {user_id}')
     return jsonify(fetch_discord_account_data(user_id))
 
-@app.route('/api/steamlogin')
+@app.route('/api/steamlogin/')
 def steam_login():
     received_access_token = request.headers['jwt']
     steamLogin = SteamSignIn()
     # Flask expects an explicit return on the route.
-    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin'))
+    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin/'))
 
 
-@app.route('/processlogin')
+@app.route('/processlogin/')
 def process():
 
     return_data = request.values
@@ -180,8 +198,8 @@ def post():
     content = request.json.get('content', None)
     community_id = request.json.get('community_id', None)
     author_id = request.json.get('author_id', None)
-    
-    
+
+
     if title is None or content is None or community_id is None or author_id is None:
         return jsonify(success=False, msg='Incomplete post'), 400
     else:
@@ -189,7 +207,7 @@ def post():
         app.logger.info(post)
         db.session.add(post)
         db.session.commit()
-    
+
     response = jsonify(success=True, msg='Post created successfully')
     return response, 201
 
@@ -230,6 +248,6 @@ def comment():
         comment = Comment(content, author_id, post_id)
         db.session.add(comment)
         db.session.commit()
-    
+
     response = jsonify(success=True, msg='Comment created successfully')
     return response, 201
