@@ -58,6 +58,12 @@ class Post(db.Model):
     comments = db.relationship('Comment', back_populates='post')
     likes = db.relationship('User', secondary=post_likes, back_populates='liked_posts')
 
+    def __init__(self, title, content, community_id, author_id):
+        self.title = title
+        self.content = content
+        self.community_id = community_id
+        self.author_id = author_id
+
     def serialize(self):
         """Return object data in JSON format"""
         return {
@@ -71,6 +77,9 @@ class Post(db.Model):
             'comments': [comment.serialize() for comment in self.comments],
             'num_likes': len(self.likes)
         }
+    
+    def __repr__(self):
+        return f"<Post(id={self.id}, title='{self.title}', content='{self.content[:20]}...', community_id={self.community_id}, author_id={self.author_id})>"
 
 
 class Comment(db.Model):
@@ -90,6 +99,11 @@ class Comment(db.Model):
     post = db.relationship('Post', back_populates='comments', uselist=False)
     likes = db.relationship('User', secondary=comment_likes, back_populates='liked_comments')
 
+    def __init__(self, content, author_id, post_id):
+        self.content = content
+        self.author_id = author_id
+        self.post_id = post_id
+
     def serialize(self):
         """Return object data in JSON format"""
         return {
@@ -101,3 +115,7 @@ class Comment(db.Model):
             'post_id': self.post_id,
             'num_likes': len(self.likes)
         }
+    
+
+    def __repr__(self):
+        return f"<Comment(id={self.id}, content={self.content}, post_id={self.post_id}, author_id={self.author_id})>"

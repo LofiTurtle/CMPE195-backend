@@ -5,7 +5,7 @@ from flask_jwt_extended import JWTManager, decode_token, create_access_token, cr
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
 from server import app, db, jwt
-from server.models import User, Post, InvalidatedToken
+from server.models import User, Post, Comment, InvalidatedToken
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -114,15 +114,15 @@ def homepage():
     return jsonify(data=[post.serialize() for post in homepage_posts])
 
 
-@app.route('/api/post/<int:post_id>', methods=['GET'])
-def posts(post_id):
-    """
-    :return: The post with the given ID
-    """
-    post = Post.query.filter_by(id=post_id).first()
-    if not post:
-        return jsonify(msg='Post not found'), 404
-    return jsonify(data=post.serialize())
+# @app.route('/api/post/<int:post_id>', methods=['GET'])
+# def get_post(post_id):
+#     """
+#     :return: The post with the given ID
+#     """
+#     post = Post.query.filter_by(id=post_id).first()
+#     if not post:
+#         return jsonify(msg='Post not found'), 404
+#     return jsonify(data=post.serialize())
 
 
 @app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})
@@ -172,3 +172,64 @@ def process():
     # At this point, redirect the user to a friendly URL
 
     return redirect('http://localhost:5173/Dashboard')
+
+
+@app.route('/post', methods=['POST'])
+def post():
+    title = request.json.get('title', None)
+    content = request.json.get('content', None)
+    community_id = request.json.get('community_id', None)
+    author_id = request.json.get('author_id', None)
+    
+    
+    if title is None or content is None or community_id is None or author_id is None:
+        return jsonify(success=False, msg='Incomplete post'), 400
+    else:
+        post = Post(title, content, community_id, author_id)
+        app.logger.info(post)
+        db.session.add(post)
+        db.session.commit()
+    
+    response = jsonify(success=True, msg='Post created successfully')
+    return response, 201
+
+
+@app.route('/posts', methods=['GET'])
+def post_list():
+    community_id = request.args.get('communityId')
+    if community_id:
+        # Query posts based on community_id
+        filtered_posts = Post.query.filter_by(community_id=community_id).all()
+        # Serialize posts to JSON
+        posts_data = [{"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content} for post in filtered_posts]
+        return jsonify({"posts": posts_data})
+    else:
+        return jsonify({"error": "communityId parameter is required"}), 400
+
+
+@app.route('/api/posts/<int:post_id>', methods=['GET'])
+def get_post(post_id):
+    post = Post.query.get(post_id)
+    if post:
+        # Serialize post to JSON
+        post_data = {"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content}
+        return jsonify({"post": post_data})
+    else:
+        return jsonify({"error": "Post not found"}), 404
+
+
+@app.route('/comment', methods=['POST'])
+def comment():
+    content = request.json.get('content', None)
+    author_id = request.json.get('author_id', None)
+    post_id = request.json.get('post_id', None)
+
+    if content is None or author_id is None or post_id is None:
+        return jsonify(success=False, msgg='Incomplete comment'), 400
+    else:
+        comment = Comment(content, author_id, post_id)
+        db.session.add(comment)
+        db.session.commit()
+    
+    response = jsonify(success=True, msg='Comment created successfully')
+    return response, 201
