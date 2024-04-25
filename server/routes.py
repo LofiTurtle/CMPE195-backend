@@ -193,17 +193,21 @@ def process():
 
 
 @app.route('/post', methods=['POST'])
-def post():
+def create_post():
     title = request.json.get('title', None)
     content = request.json.get('content', None)
     community_id = request.json.get('community_id', None)
     author_id = request.json.get('author_id', None)
 
-
     if title is None or content is None or community_id is None or author_id is None:
         return jsonify(success=False, msg='Incomplete post'), 400
     else:
-        post = Post(title, content, community_id, author_id)
+        post = Post(
+            title=title,
+            content=content,
+            community_id=community_id,
+            author_id=author_id
+        )
         app.logger.info(post)
         db.session.add(post)
         db.session.commit()
@@ -237,7 +241,7 @@ def get_post(post_id):
 
 
 @app.route('/comment', methods=['POST'])
-def comment():
+def create_comment():
     content = request.json.get('content', None)
     author_id = request.json.get('author_id', None)
     post_id = request.json.get('post_id', None)
@@ -245,7 +249,11 @@ def comment():
     if content is None or author_id is None or post_id is None:
         return jsonify(success=False, msgg='Incomplete comment'), 400
     else:
-        comment = Comment(content, author_id, post_id)
+        comment = Comment(
+            content=content,
+            author_id=author_id,
+            post_id=post_id
+        )
         db.session.add(comment)
         db.session.commit()
 
