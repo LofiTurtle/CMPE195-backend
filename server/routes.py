@@ -95,7 +95,7 @@ def me():
     return jsonify(user.serialize())
 
 
-@app.route('/api/user/<int:user_id>', methods=['GET'])
+@app.route('/api/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -103,7 +103,7 @@ def get_user(user_id):
     return jsonify(data=user.serialize())
 
 
-@app.route('/api/user/<int:user_id>/posts', methods=['GET'])
+@app.route('/api/users/<int:user_id>/posts', methods=['GET'])
 def get_user_posts(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -112,9 +112,17 @@ def get_user_posts(user_id):
     return jsonify(data=[post.serialize() for post in user_posts])
 
 
+@app.route('/api/community/<int:community_id>', methods=['GET'])
+def get_community(community_id):
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify(msg='Community not found'), 404
+    return jsonify(data=community.serialize())
+
+
 @app.route('/api/community/<int:community_id>/posts', methods=['GET'])
 def get_community_posts(community_id):
-    community = Community.query.filter_by(id=community_id).first()
+    community = Community.query.get(community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
     community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
@@ -132,15 +140,15 @@ def homepage():
     return jsonify(data=[post.serialize() for post in homepage_posts])
 
 
-# @app.route('/api/post/<int:post_id>', methods=['GET'])
-# def get_post(post_id):
-#     """
-#     :return: The post with the given ID
-#     """
-#     post = Post.query.filter_by(id=post_id).first()
-#     if not post:
-#         return jsonify(msg='Post not found'), 404
-#     return jsonify(data=post.serialize())
+@app.route('/api/posts/<int:post_id>', methods=['GET'])
+def get_post(post_id):
+    """
+    :return: The post with the given ID
+    """
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify(msg='Post not found'), 404
+    return jsonify(data=post.serialize())
 
 
 @app.route('/api/linked-accounts', methods=['GET'], defaults={'user_id': None})
@@ -192,12 +200,13 @@ def process():
     return redirect('http://localhost:5173/Dashboard')
 
 
-@app.route('/post', methods=['POST'])
+@app.route('/api/posts/create', methods=['POST'])
+@jwt_required()
 def create_post():
     title = request.json.get('title', None)
     content = request.json.get('content', None)
     community_id = request.json.get('community_id', None)
-    author_id = request.json.get('author_id', None)
+    author_id = get_jwt_identity()
 
     if title is None or content is None or community_id is None or author_id is None:
         return jsonify(success=False, msg='Incomplete post'), 400
@@ -216,31 +225,7 @@ def create_post():
     return response, 201
 
 
-@app.route('/posts', methods=['GET'])
-def post_list():
-    community_id = request.args.get('communityId')
-    if community_id:
-        # Query posts based on community_id
-        filtered_posts = Post.query.filter_by(community_id=community_id).all()
-        # Serialize posts to JSON
-        posts_data = [{"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content} for post in filtered_posts]
-        return jsonify({"posts": posts_data})
-    else:
-        return jsonify({"error": "communityId parameter is required"}), 400
-
-
-@app.route('/api/posts/<int:post_id>', methods=['GET'])
-def get_post(post_id):
-    post = Post.query.get(post_id)
-    if post:
-        # Serialize post to JSON
-        post_data = {"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content}
-        return jsonify({"post": post_data})
-    else:
-        return jsonify({"error": "Post not found"}), 404
-
-
-@app.route('/comment', methods=['POST'])
+@app.route('/comments/create', methods=['POST'])
 def create_comment():
     content = request.json.get('content', None)
     author_id = request.json.get('author_id', None)

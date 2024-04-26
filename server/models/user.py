@@ -113,7 +113,7 @@ class ConnectedAccount(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     username = db.Column(db.String(128), nullable=False)
     provider = db.Column(db.Enum(OAuthProvider), nullable=False)
-    access_token = db.Column(db.Text, nullable=False)
+    access_token = db.Column(db.Text, nullable=True)
     refresh_token = db.Column(db.Text, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
 

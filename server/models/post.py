@@ -67,7 +67,7 @@ class Post(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'community': self.community.serialize(),
-            'author_id': self.author.id,
+            'author': self.author.serialize(),
             'comments': [comment.serialize() for comment in self.comments],
             'num_likes': len(self.likes)
         }
