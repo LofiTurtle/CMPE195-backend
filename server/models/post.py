@@ -50,19 +50,13 @@ class Post(db.Model):
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    community_id = db.Column(db.Integer, db.ForeignKey('community.id'))
+    community_id = db.Column(db.Integer, db.ForeignKey('community.id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     community = db.relationship('Community', back_populates='posts')
     author = db.relationship('User', back_populates='posts', uselist=False)
     comments = db.relationship('Comment', back_populates='post')
     likes = db.relationship('User', secondary=post_likes, back_populates='liked_posts')
-
-    def __init__(self, title, content, community_id, author_id):
-        self.title = title
-        self.content = content
-        self.community_id = community_id
-        self.author_id = author_id
 
     def serialize(self):
         """Return object data in JSON format"""
@@ -99,11 +93,6 @@ class Comment(db.Model):
     post = db.relationship('Post', back_populates='comments', uselist=False)
     likes = db.relationship('User', secondary=comment_likes, back_populates='liked_comments')
 
-    def __init__(self, content, author_id, post_id):
-        self.content = content
-        self.author_id = author_id
-        self.post_id = post_id
-
     def serialize(self):
         """Return object data in JSON format"""
         return {
@@ -111,7 +100,7 @@ class Comment(db.Model):
             'content': self.content,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'author': self.author.serialize(),
+            'author_id': self.author.id,
             'post_id': self.post_id,
             'num_likes': len(self.likes)
         }

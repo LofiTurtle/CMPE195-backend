@@ -5,7 +5,7 @@ from flask_jwt_extended import JWTManager, decode_token, create_access_token, cr
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
 from server import app, db, jwt
-from server.models import User, Post, Comment, InvalidatedToken
+from server.models import User, Post, Comment, InvalidatedToken, Community
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -95,12 +95,38 @@ def me():
     return jsonify(user.serialize())
 
 
-@app.route('/api/user/<int:user_id>', methods=['GET'])
+@app.route('/api/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify(msg='User not found'), 404
     return jsonify(data=user.serialize())
+
+
+@app.route('/api/users/<int:user_id>/posts', methods=['GET'])
+def get_user_posts(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    user_posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in user_posts])
+
+
+@app.route('/api/community/<int:community_id>', methods=['GET'])
+def get_community(community_id):
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify(msg='Community not found'), 404
+    return jsonify(data=community.serialize())
+
+
+@app.route('/api/community/<int:community_id>/posts', methods=['GET'])
+def get_community_posts(community_id):
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify(msg='Community not found'), 404
+    community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
+    return jsonify(data=[post.serialize() for post in community_posts])
 
 
 @app.route('/api/homepage', methods=['GET'])
@@ -114,18 +140,18 @@ def homepage():
     return jsonify(data=[post.serialize() for post in homepage_posts])
 
 
-# @app.route('/api/post/<int:post_id>', methods=['GET'])
-# def get_post(post_id):
-#     """
-#     :return: The post with the given ID
-#     """
-#     post = Post.query.filter_by(id=post_id).first()
-#     if not post:
-#         return jsonify(msg='Post not found'), 404
-#     return jsonify(data=post.serialize())
+@app.route('/api/posts/<int:post_id>', methods=['GET'])
+def get_post(post_id):
+    """
+    :return: The post with the given ID
+    """
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify(msg='Post not found'), 404
+    return jsonify(data=post.serialize())
 
 
-@app.route('/api/linked-accounts/', methods=['GET'], defaults={'user_id': None})
+@app.route('/api/linked-accounts', methods=['GET'], defaults={'user_id': None})
 @app.route('/api/linked-accounts/<string:user_id>', methods=['GET'])
 def get_linked_accounts(user_id):
     if user_id is None:
@@ -138,7 +164,7 @@ def get_linked_accounts(user_id):
     })
 
 
-@app.route('/api/linked-accounts/discord/', methods=['GET'], defaults={'user_id': None})
+@app.route('/api/linked-accounts/discord', methods=['GET'], defaults={'user_id': None})
 @app.route('/api/linked-accounts/discord/<string:user_id>', methods=['GET'])
 def get_discord_account(user_id):
     # TODO set this up with real data
@@ -174,52 +200,33 @@ def process():
     return redirect('http://localhost:5173/Dashboard')
 
 
-@app.route('/post', methods=['POST'])
-def post():
+@app.route('/api/posts/create', methods=['POST'])
+@jwt_required()
+def create_post():
     title = request.json.get('title', None)
     content = request.json.get('content', None)
     community_id = request.json.get('community_id', None)
-    author_id = request.json.get('author_id', None)
-    
-    
+    author_id = get_jwt_identity()
+
     if title is None or content is None or community_id is None or author_id is None:
         return jsonify(success=False, msg='Incomplete post'), 400
     else:
-        post = Post(title, content, community_id, author_id)
+        post = Post(
+            title=title,
+            content=content,
+            community_id=community_id,
+            author_id=author_id
+        )
         app.logger.info(post)
         db.session.add(post)
         db.session.commit()
-    
+
     response = jsonify(success=True, msg='Post created successfully')
     return response, 201
 
 
-@app.route('/posts', methods=['GET'])
-def post_list():
-    community_id = request.args.get('communityId')
-    if community_id:
-        # Query posts based on community_id
-        filtered_posts = Post.query.filter_by(community_id=community_id).all()
-        # Serialize posts to JSON
-        posts_data = [{"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content} for post in filtered_posts]
-        return jsonify({"posts": posts_data})
-    else:
-        return jsonify({"error": "communityId parameter is required"}), 400
-
-
-@app.route('/api/posts/<int:post_id>', methods=['GET'])
-def get_post(post_id):
-    post = Post.query.get(post_id)
-    if post:
-        # Serialize post to JSON
-        post_data = {"id": post.id, "userId": post.author_id, "title": post.title, "content": post.content}
-        return jsonify({"post": post_data})
-    else:
-        return jsonify({"error": "Post not found"}), 404
-
-
-@app.route('/comment', methods=['POST'])
-def comment():
+@app.route('/comments/create', methods=['POST'])
+def create_comment():
     content = request.json.get('content', None)
     author_id = request.json.get('author_id', None)
     post_id = request.json.get('post_id', None)
@@ -227,9 +234,13 @@ def comment():
     if content is None or author_id is None or post_id is None:
         return jsonify(success=False, msgg='Incomplete comment'), 400
     else:
-        comment = Comment(content, author_id, post_id)
+        comment = Comment(
+            content=content,
+            author_id=author_id,
+            post_id=post_id
+        )
         db.session.add(comment)
         db.session.commit()
-    
+
     response = jsonify(success=True, msg='Comment created successfully')
     return response, 201
