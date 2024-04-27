@@ -1,13 +1,20 @@
+import os
+import uuid
 from datetime import datetime
 
-from flask import jsonify, request, redirect, make_response
+from flask import jsonify, request, redirect, make_response, send_file, render_template
 from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
+
+from PIL import Image
 
 from server import app, db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
+
+from server.services.media_processing import save_profile_picture, delete_profile_picture
+
 
 @app.route('/auth/register', methods=['POST'])
 def register():
@@ -101,6 +108,51 @@ def get_user(user_id):
     if not user:
         return jsonify(msg='User not found'), 404
     return jsonify(data=user.serialize())
+
+
+@app.route('/api/me', methods=['PATCH', 'POST'])
+@jwt_required()
+def edit_profile():
+    """Takes username, bio, and profile_picture as form data"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(msg='User not found'), 404
+
+    username = request.form['username']
+    bio = request.form['bio']
+    profile_picture = request.files['profile_picture']
+
+    if username is not None:
+        user.username = username
+    if bio:
+        user.profile.bio = bio
+    if profile_picture is not None:
+        pfp_uuid = save_profile_picture(profile_picture)
+        delete_profile_picture(user)
+        user.profile.profile_picture_id = pfp_uuid
+
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(msg='Profile updated successfully')
+
+
+@app.route('/api/users/<int:user_id>/profile-picture', methods=['GET'])
+def get_user_profile_picture(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(msg='User not found'), 404
+    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], user.profile.profile_picture_id + '.jpg'))
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='image/jpeg')
+    else:
+        return jsonify(msg='Profile picture not found'), 404
+
+
+@app.route('/edit-profile-test', methods=['GET'])
+def edit_profile_test():
+    # TODO remove this after profile editing is implemented
+    return render_template('edit_profile.html')
 
 
 @app.route('/api/users/<int:user_id>/posts', methods=['GET'])

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Upload Form</title>
+</head>
+<body>
+    <h1>Image Upload Form</h1>
+    <form action="/api/me" method="POST" enctype="multipart/form-data">
+        <div>
+            <label for="username">Username:</label>
+            <textarea name="username" id="username" rows="1" cols="50"></textarea>
+        </div>
+        <div>
+            <label for="bio">Bio:</label>
+            <textarea name="bio" id="bio" rows="4" cols="50"></textarea>
+        </div>
+        <div>
+            <label for="image">Image:</label>
+            <input type="file" name="profile_picture" id="profile_picture" accept="image/*" required>
+        </div>
+        <div>
+            <input type="submit" value="Submit">
+        </div>
+    </form>
+</body>
+</html>

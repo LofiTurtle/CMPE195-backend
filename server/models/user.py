@@ -84,8 +84,7 @@ class UserProfile(db.Model):
     def serialize(self):
         """Return object data in JSON format"""
         return {
-            'bio': self.bio,
-            'profile_picture_id': self.profile_picture_id
+            'bio': self.bio
         }
 
 
