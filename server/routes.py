@@ -36,7 +36,6 @@ def register():
     if not validate_password(password):
         return jsonify(success=False, msg='Invalid password'), 400
 
-    # TODO create UserProfile as well
     user = User(username, password)
     db.session.add(user)
     db.session.commit()
@@ -123,11 +122,11 @@ def edit_profile():
     bio = request.form['bio']
     profile_picture = request.files['profile_picture']
 
-    if username is not None:
+    if username:
         user.username = username
     if bio:
         user.profile.bio = bio
-    if profile_picture is not None:
+    if profile_picture.filename != '':
         pfp_uuid = save_profile_picture(profile_picture)
         delete_profile_picture(user)
         user.profile.profile_picture_id = pfp_uuid
