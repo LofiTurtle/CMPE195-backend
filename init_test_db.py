@@ -61,8 +61,6 @@ if __name__ == '__main__':
         db.session.add(user2)
         db.session.add(user3)
 
-        db.session.add(user1_discord)
-
         db.session.add(community1)
         db.session.add(community2)
 
