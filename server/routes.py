@@ -1,24 +1,19 @@
 import os
-import uuid
 from datetime import datetime, timedelta
-from urllib.parse import quote
 
 import requests
-from flask import jsonify, request, redirect, make_response, send_file, render_template, session
-from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
-    get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
-
-from PIL import Image
+from flask import jsonify, request, redirect, send_file, render_template
+from flask_jwt_extended import decode_token, create_access_token, jwt_required, \
+    get_jwt_identity, set_access_cookies, get_jwt, unset_access_cookies
+from pysteamsignin.steamsignin import SteamSignIn
 
 from server import app, db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount
 from server.services import fetch_discord_account_data, validate_password
-from pysteamsignin.steamsignin import SteamSignIn
-
 from server.services.media_processing import save_profile_picture, delete_profile_picture
 
 
-@app.route('/auth/register', methods=['POST'])
+@app.route('/api/register', methods=['POST'])
 def register():
     """
     Creates a new user account. Accepts JSON payload with `username` and `password` fields.
@@ -48,7 +43,7 @@ def register():
     return response, 201
 
 
-@app.route('/auth/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     """
     Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
