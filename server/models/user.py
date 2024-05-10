@@ -97,13 +97,17 @@ class InvalidatedToken(db.Model):
     expired_at = db.Column(db.DateTime, nullable=False)
 
 
-class OAuthProvider(Enum):
+class ConnectedService(Enum):
     """
-    Supported providers for OAuth 2.0, also used as provider's display name
+    Supported 3rd party account providers, also used as provider's display name
     """
     DISCORD = 'Discord'
+    STEAM = 'Steam'
 
 
+# TODO separate this into dedicated tables for each service, or expand this table to support more things
+#  e.g. display names
+#  atm, only Discord is supported
 class ConnectedAccount(db.Model):
     """Stores connected accounts for a user"""
     __tablename__ = 'connected_account'
@@ -111,7 +115,9 @@ class ConnectedAccount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     username = db.Column(db.String(128), nullable=False)
-    provider = db.Column(db.Enum(OAuthProvider), nullable=False)
+    discord_user_id = db.Column(db.String(128), nullable=True)
+    profile_picture = db.Column(db.String(), nullable=True)
+    provider = db.Column(db.Enum(ConnectedService), nullable=False)
     access_token = db.Column(db.Text, nullable=True)
     refresh_token = db.Column(db.Text, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
@@ -122,6 +128,8 @@ class ConnectedAccount(db.Model):
         """Return object data in JSON format"""
         return {
             'username': self.username,
+            'discord_user_id': self.discord_user_id,
+            'profile_picture_url': f'https://cdn.discordapp.com/avatars/{self.discord_user_id}/{self.profile_picture}.png',  # TODO see if this breaks for .gif pfps
             'provider': self.provider.value
         }
 
