@@ -21,15 +21,6 @@ if __name__ == '__main__':
         user1.followers.append(user2)
         user3.following.append(user1)
 
-        # user1 has a discord account connected
-        user1_discord = ConnectedAccount(
-            provider=OAuthProvider.DISCORD,
-            username='user1_but_on_discord',
-            access_token='access_token1',
-            user=user1,
-            expires_at=datetime.now()
-        )
-
         # 2 default communities, 1 with all users in it and another empty
         community1 = Community(name='Popular Community')
         community2 = Community(name='Unpopular Community')

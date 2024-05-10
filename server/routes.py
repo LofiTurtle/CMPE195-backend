@@ -1,15 +1,17 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
+from urllib.parse import quote
 
-from flask import jsonify, request, redirect, make_response, send_file, render_template
+import requests
+from flask import jsonify, request, redirect, make_response, send_file, render_template, session
 from flask_jwt_extended import JWTManager, decode_token, create_access_token, create_refresh_token, jwt_required, \
     get_jwt_identity, set_access_cookies, set_refresh_cookies, get_jwt, unset_access_cookies
 
 from PIL import Image
 
 from server import app, db, jwt
-from server.models import User, Post, Comment, InvalidatedToken, Community
+from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount
 from server.services import fetch_discord_account_data, validate_password
 from pysteamsignin.steamsignin import SteamSignIn
 
@@ -215,12 +217,86 @@ def get_linked_accounts(user_id):
     })
 
 
-@app.route('/api/linked-accounts/discord', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/discord/<string:user_id>', methods=['GET'])
-def get_discord_account(user_id):
-    # TODO set this up with real data
-    print(f'would have retrieved discord info for user {user_id}')
-    return jsonify(fetch_discord_account_data(user_id))
+@app.route('/api/discord/connect')
+@jwt_required()
+def discord_connect():
+    params = {
+        'client_id': app.config['DISCORD_CLIENT_ID'],
+        'redirect_uri': app.config['DISCORD_REDIRECT_URI'],
+        'response_type': 'code',
+        'scope': ' '.join(app.config['DISCORD_SCOPES'])
+    }
+    authorization_url = app.config['DISCORD_AUTH_URL'] + '?' + '&'.join([f'{k}={v}' for k, v in params.items()])
+    return redirect(authorization_url)
+
+
+@app.route('/api/discord/callback')
+@jwt_required()
+def discord_callback():
+    code = request.args.get('code')
+    data = {
+        'client_id': app.config['DISCORD_CLIENT_ID'],
+        'client_secret': app.config['DISCORD_CLIENT_SECRET'],
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': app.config['DISCORD_REDIRECT_URI']
+    }
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    response = requests.post(app.config['DISCORD_TOKEN_URL'], data=data, headers=headers)
+    token_data = response.json()
+
+    # TODO save token to database & fetch initial info
+
+    access_token = token_data['access_token']
+    refresh_token = token_data['refresh_token']
+    expires_in = token_data['expires_in']
+    expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+    user = User.query.get(get_jwt_identity())
+    if not user:
+        return jsonify(msg='User not found'), 401
+
+    connected_discord_account = next((account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
+    if connected_discord_account:
+        connected_discord_account.access_token = access_token
+        connected_discord_account.refresh_token = refresh_token
+        connected_discord_account.expires_at = expires_at
+    else:
+        user.connected_accounts.append(ConnectedAccount(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            username='',
+            provider=ConnectedService.DISCORD
+        ))
+
+    db.session.add(user)
+    db.session.commit()
+
+    fetch_discord_account_data(user.id)
+
+    # redirect to user's account page
+    return redirect(app.config['REACT_APP_URL'] + f'/users/{get_jwt_identity()}')
+
+
+@app.route('/api/discord/disconnect', methods=['POST'])
+@jwt_required()
+def discord_disconnect():
+    user = User.query.get(get_jwt_identity())
+    if not user:
+        return jsonify(msg='User not found'), 401
+
+    connected_discord_account = next((account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
+    if connected_discord_account:
+        user.connected_accounts.remove(connected_discord_account)
+        db.session.delete(connected_discord_account)
+
+    db.session.commit()
+
+    return jsonify(msg='Disconnected from Discord')
+
 
 @app.route('/api/steamlogin')
 def steam_login():
