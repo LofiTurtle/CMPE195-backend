@@ -322,7 +322,7 @@ def process():
     return redirect('http://localhost:5173/Dashboard')
 
 
-@app.route('/api/posts/create', methods=['POST'])
+@app.route('/api/posts', methods=['POST'])
 @jwt_required()
 def create_post():
     title = request.json.get('title', None)
@@ -347,7 +347,7 @@ def create_post():
     return response, 201
 
 
-@app.route('/comments/create', methods=['POST'])
+@app.route('/comments', methods=['POST'])
 def create_comment():
     content = request.json.get('content', None)
     author_id = request.json.get('author_id', None)
