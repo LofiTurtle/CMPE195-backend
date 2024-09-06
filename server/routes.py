@@ -10,7 +10,7 @@ from pysteamsignin.steamsignin import SteamSignIn
 from server import app, db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount
 from server.services import fetch_discord_account_data, validate_password
-from server.services.media_processing import save_profile_picture, delete_profile_picture
+from server.services.media_processing import save_image, delete_image
 
 
 @app.route('/api/register', methods=['POST'])
@@ -98,14 +98,6 @@ def me():
     return jsonify(user=user.serialize())
 
 
-@app.route('/api/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.filter_by(id=user_id).first()
-    if not user:
-        return jsonify(msg='User not found'), 404
-    return jsonify(user=user.serialize())
-
-
 @app.route('/api/me', methods=['PATCH', 'POST'])
 @jwt_required()
 def edit_profile():
@@ -124,13 +116,21 @@ def edit_profile():
     if bio:
         user.profile.bio = bio
     if profile_picture.filename != '':
-        pfp_uuid = save_profile_picture(profile_picture)
-        delete_profile_picture(user)
+        pfp_uuid = save_image(profile_picture)
+        delete_image(user.profile.profile_picture_id)
         user.profile.profile_picture_id = pfp_uuid
 
     db.session.add(user)
     db.session.commit()
     return jsonify(msg='Profile updated successfully')
+
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    return jsonify(user=user.serialize())
 
 
 @app.route('/api/users/<int:user_id>/profile-picture', methods=['GET'])
@@ -197,6 +197,77 @@ def get_post(post_id):
     if not post:
         return jsonify(msg='Post not found'), 404
     return jsonify(post=post.serialize())
+
+
+@app.route('/api/posts', methods=['POST'])
+@jwt_required()
+def create_post():
+    title = request.form.get('title', None)
+    content = request.form.get('content', None)
+    community_id = request.form.get('community_id', None)
+    author_id = get_jwt_identity()
+    image = request.files.get('image', None)
+
+    if title is None or content is None or community_id is None or author_id is None:
+        return jsonify(success=False, msg='Incomplete post'), 400
+
+    post = Post(
+        title=title,
+        content=content,
+        community_id=community_id,
+        author_id=author_id
+    )
+
+    if image:
+        image_uuid = save_image(image)
+        post.image_id = image_uuid
+
+    app.logger.info(post)
+    db.session.add(post)
+    db.session.commit()
+
+    response = jsonify(post=post.serialize())
+    return response, 201
+
+
+@app.route('/api/posts/<int:post_id>/image', methods=['GET'])
+def get_post_image(post_id):
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify(msg='Post not found'), 404
+    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], post.image_id + '.jpg'))
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='image/jpeg')
+    else:
+        return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
+
+
+@app.route('/create-post-test', methods=['GET'])
+@jwt_required()
+def create_post_test():
+    # TODO remove this once posts w/ images are implemented in React
+    return render_template('create_post.html')
+
+
+@app.route('/api/comments', methods=['POST'])
+def create_comment():
+    content = request.json.get('content', None)
+    author_id = request.json.get('author_id', None)
+    post_id = request.json.get('post_id', None)
+
+    if content is None or author_id is None or post_id is None:
+        return jsonify(success=False, msgg='Incomplete comment'), 400
+    else:
+        comment = Comment(
+            content=content,
+            author_id=author_id,
+            post_id=post_id
+        )
+        db.session.add(comment)
+        db.session.commit()
+
+    response = jsonify(comment=comment.serialize())
+    return response, 201
 
 
 @app.route('/api/linked-accounts', methods=['GET'], defaults={'user_id': None})
@@ -320,49 +391,3 @@ def process():
     # At this point, redirect the user to a friendly URL
 
     return redirect('http://localhost:5173/Dashboard')
-
-
-@app.route('/api/posts', methods=['POST'])
-@jwt_required()
-def create_post():
-    title = request.json.get('title', None)
-    content = request.json.get('content', None)
-    community_id = request.json.get('community_id', None)
-    author_id = get_jwt_identity()
-
-    if title is None or content is None or community_id is None or author_id is None:
-        return jsonify(success=False, msg='Incomplete post'), 400
-    else:
-        post = Post(
-            title=title,
-            content=content,
-            community_id=community_id,
-            author_id=author_id
-        )
-        app.logger.info(post)
-        db.session.add(post)
-        db.session.commit()
-
-    response = jsonify(post=post.serialize())
-    return response, 201
-
-
-@app.route('/comments', methods=['POST'])
-def create_comment():
-    content = request.json.get('content', None)
-    author_id = request.json.get('author_id', None)
-    post_id = request.json.get('post_id', None)
-
-    if content is None or author_id is None or post_id is None:
-        return jsonify(success=False, msgg='Incomplete comment'), 400
-    else:
-        comment = Comment(
-            content=content,
-            author_id=author_id,
-            post_id=post_id
-        )
-        db.session.add(comment)
-        db.session.commit()
-
-    response = jsonify(comment=comment.serialize())
-    return response, 201
