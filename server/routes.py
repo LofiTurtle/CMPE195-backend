@@ -95,7 +95,7 @@ def me():
     user = User.query.filter_by(id=identity).first()
     if not user:
         return jsonify(msg='User not found'), 404
-    return jsonify(user.serialize())
+    return jsonify(user=user.serialize())
 
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
@@ -103,7 +103,7 @@ def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify(msg='User not found'), 404
-    return jsonify(data=user.serialize())
+    return jsonify(user=user.serialize())
 
 
 @app.route('/api/me', methods=['PATCH', 'POST'])
@@ -157,7 +157,7 @@ def get_user_posts(user_id):
     if not user:
         return jsonify(msg='User not found'), 404
     user_posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
-    return jsonify(data=[post.serialize() for post in user_posts])
+    return jsonify(posts=[post.serialize() for post in user_posts])
 
 
 @app.route('/api/community/<int:community_id>', methods=['GET'])
@@ -165,7 +165,7 @@ def get_community(community_id):
     community = Community.query.get(community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
-    return jsonify(data=community.serialize())
+    return jsonify(community=community.serialize())
 
 
 @app.route('/api/community/<int:community_id>/posts', methods=['GET'])
@@ -174,7 +174,7 @@ def get_community_posts(community_id):
     if not community:
         return jsonify(msg='Community not found'), 404
     community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
-    return jsonify(data=[post.serialize() for post in community_posts])
+    return jsonify(posts=[post.serialize() for post in community_posts])
 
 
 @app.route('/api/homepage', methods=['GET'])
@@ -185,7 +185,7 @@ def homepage():
     # TODO return only posts from the user's followed communities, not all communities
     # TODO support different sorting orders
     homepage_posts = Post.query.order_by(Post.created_at.desc()).limit(10)
-    return jsonify(data=[post.serialize() for post in homepage_posts])
+    return jsonify(posts=[post.serialize() for post in homepage_posts])
 
 
 @app.route('/api/posts/<int:post_id>', methods=['GET'])
@@ -196,7 +196,7 @@ def get_post(post_id):
     post = Post.query.get(post_id)
     if not post:
         return jsonify(msg='Post not found'), 404
-    return jsonify(data=post.serialize())
+    return jsonify(post=post.serialize())
 
 
 @app.route('/api/linked-accounts', methods=['GET'], defaults={'user_id': None})
@@ -343,7 +343,7 @@ def create_post():
         db.session.add(post)
         db.session.commit()
 
-    response = jsonify(success=True, msg='Post created successfully')
+    response = jsonify(post=post.serialize())
     return response, 201
 
 
@@ -364,5 +364,5 @@ def create_comment():
         db.session.add(comment)
         db.session.commit()
 
-    response = jsonify(success=True, msg='Comment created successfully')
+    response = jsonify(comment=comment.serialize())
     return response, 201
