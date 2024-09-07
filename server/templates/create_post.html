@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Post w/ Image Form</title>
+</head>
+<body>
+    <h1>Create Post w/ Image Form</h1>
+    <form action="/api/posts" method="POST" enctype="multipart/form-data">
+        <div>
+            <label for="title">Title:</label>
+            <textarea name="title" id="title" rows="1" cols="50"></textarea>
+        </div>
+        <div>
+            <label for="content">Content:</label>
+            <textarea name="content" id="content" rows="4" cols="50"></textarea>
+        </div>
+        <div>
+            <label for="community_id">Community ID:</label>
+            <input type="text" name="community_id" id="community_id">
+        </div>
+        <div>
+            <label for="image">Image:</label>
+            <input type="file" name="image" id="image" accept="image/*">
+        </div>
+        <div>
+            <input type="submit" value="Submit">
+        </div>
+    </form>
+</body>
+</html>

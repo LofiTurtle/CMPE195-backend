@@ -4,7 +4,6 @@
 
 - Run with Python 3.11. 
 - Create a virtual environment with packages from `requirements.txt` using PyCharm's GUI or the command line. 
-- Install the server as a module by running `pip install -e .` (note the `.`) in the `/backend` directory. 
 - Create a file called `.env` with the necessary environment variables set.
 
 ## Running
