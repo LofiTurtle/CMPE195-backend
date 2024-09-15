@@ -208,7 +208,7 @@ def create_post():
     author_id = get_jwt_identity()
     image = request.files.get('image', None)
 
-    if title is None or content is None or community_id is None or author_id is None:
+    if title is None or content is None or community_id is None:
         return jsonify(success=False, msg='Incomplete post'), 400
 
     post = Post(
