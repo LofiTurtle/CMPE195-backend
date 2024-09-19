@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from server import db
 
@@ -36,6 +36,7 @@ class Community(db.Model):
             'id': self.id,
             'name': self.name,
             'num_users': len(self.users)
+            
         }
 
 
@@ -49,8 +50,8 @@ class Post(db.Model):
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
     image_id = db.Column(db.String(36), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
-    updated_at = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     community_id = db.Column(db.Integer, db.ForeignKey('community.id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -72,6 +73,7 @@ class Post(db.Model):
             'comments': [comment.serialize() for comment in self.comments],
             'num_likes': len(self.likes),
             'media': 'image' if self.image_id else None
+            
         }
     
     def __repr__(self):
@@ -86,8 +88,8 @@ class Comment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
-    updated_at = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
 
