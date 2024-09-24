@@ -220,7 +220,6 @@ def get_communities(user_id):
     return jsonify(communities=[community.serialize() for community in user.communities])
 
 
-# TODO follow/unfollow communities
 @app.route('/api/communities/<int:community_id>/follow', methods=['POST'])
 @jwt_required()
 def follow_community(community_id):
