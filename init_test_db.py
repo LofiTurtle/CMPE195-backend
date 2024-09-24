@@ -37,6 +37,9 @@ if __name__ == '__main__':
         post3b = Post(title='Post 3b', content='This is post 3b', community=community1, author=user3)
         post3c = Post(title='Post 3c', content='This is post 3c', community=community1, author=user3)
 
+        # 1 post in Unpopular Community
+        unpopular_post = Post(title='Unpopular Post', content='An unpopular post', community=community2, author=user1)
+
         # each user likes lower #'d user's posts
         post1a.likes.append(user2)
         post1a.likes.append(user3)
@@ -70,6 +73,8 @@ if __name__ == '__main__':
         db.session.add(post3a)
         db.session.add(post3b)
         db.session.add(post3c)
+
+        db.session.add(unpopular_post)
 
         db.session.add(comment1)
         db.session.add(comment2)
