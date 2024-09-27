@@ -198,7 +198,7 @@ def unfollow(target_user_id):
 @app.route('/api/users/<int:target_user_id>/relationship', methods=['GET'])
 @jwt_required()
 def get_relationship(target_user_id):
-    """Get the follower/following relationship between the current and target users"""
+    """Get the following/followed-by relationship between the current and target users"""
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
     if not current_user:
         return jsonify(msg='Logged in user not found'), 404
@@ -212,12 +212,23 @@ def get_relationship(target_user_id):
 
 
 @app.route('/api/users/<int:user_id>/communities', methods=['GET'])
-def get_communities(user_id):
+def get_user_communities(user_id):
+    """Get the communities a user follows"""
     user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify(msg='User not found'), 404
 
     return jsonify(communities=[community.serialize() for community in user.communities])
+
+
+@app.route('/api/communities/<int:community_id>/users', methods=['GET'])
+def get_community_users(community_id):
+    """Get the users who follow a community"""
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+
+    return jsonify(users=[user.serialize() for user in community.users])
 
 
 @app.route('/api/communities/<int:community_id>/follow', methods=['POST'])
