@@ -62,6 +62,9 @@ class User(db.Model):
             'id': self.id,
             'username': self.username,
             'profile': self.profile.serialize(),
+            'follower_count': len(self.followers),
+            'following_count': len(self.following),
+            'communities_count': len(self.communities),
             'connected_accounts': [account.serialize() for account in self.connected_accounts],
         }
 

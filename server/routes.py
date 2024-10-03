@@ -122,7 +122,7 @@ def edit_profile():
 
     db.session.add(user)
     db.session.commit()
-    return jsonify(msg='Profile updated successfully')
+    return jsonify(user=user.serialize())
 
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
@@ -131,6 +131,144 @@ def get_user(user_id):
     if not user:
         return jsonify(msg='User not found'), 404
     return jsonify(user=user.serialize())
+
+
+@app.route('/api/users/<int:user_id>/followers', methods=['GET'])
+def get_followers(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    return jsonify(followers=[follower.serialize() for follower in user.followers])
+
+
+@app.route('/api/users/<int:user_id>/following', methods=['GET'])
+def get_following(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    return jsonify(following=[following_user.serialize() for following_user in user.following])
+
+
+@app.route('/api/users/<int:target_user_id>/follow', methods=['POST'])
+@jwt_required()
+def follow(target_user_id):
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    target_user = User.query.filter_by(id=target_user_id).first()
+    if not target_user:
+        return jsonify(msg='User not found'), 404
+
+    if current_user.id == target_user.id:
+        return jsonify(msg='You cannot follow yourself'), 403
+
+    if target_user in current_user.following:
+        return '', 204
+
+    current_user.following.append(target_user)
+    db.session.commit()
+
+    return '', 201
+
+
+@app.route('/api/users/<int:target_user_id>/follow', methods=['DELETE'])
+@jwt_required()
+def unfollow(target_user_id):
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    target_user = User.query.filter_by(id=target_user_id).first()
+    if not target_user:
+        return jsonify(msg='User not found'), 404
+
+    if current_user.id == target_user.id:
+        return jsonify(msg='You cannot unfollow yourself'), 403
+
+    if target_user not in current_user.following:
+        return '', 204
+
+    current_user.following.remove(target_user)
+    db.session.commit()
+
+    return '', 204
+
+
+@app.route('/api/users/<int:target_user_id>/relationship', methods=['GET'])
+@jwt_required()
+def get_relationship(target_user_id):
+    """Get the following/followed-by relationship between the current and target users"""
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    target_user = User.query.filter_by(id=target_user_id).first()
+    if not target_user:
+        return jsonify(msg='User not found'), 404
+
+    return jsonify(following=target_user in current_user.following,
+                   followed_by=target_user in current_user.followers)
+
+
+@app.route('/api/users/<int:user_id>/communities', methods=['GET'])
+def get_user_communities(user_id):
+    """Get the communities a user follows"""
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+
+    return jsonify(communities=[community.serialize() for community in user.communities])
+
+
+@app.route('/api/communities/<int:community_id>/users', methods=['GET'])
+def get_community_users(community_id):
+    """Get the users who follow a community"""
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+
+    return jsonify(users=[user.serialize() for user in community.users])
+
+
+@app.route('/api/communities/<int:community_id>/follow', methods=['POST'])
+@jwt_required()
+def follow_community(community_id):
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+
+    if community in current_user.communities:
+        return '', 204
+
+    current_user.communities.append(community)
+    db.session.commit()
+
+    return '', 201
+
+
+@app.route('/api/communities/<int:community_id>/follow', methods=['DELETE'])
+@jwt_required()
+def unfollow_community(community_id):
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    community = Community.query.filter_by(id=community_id).first()
+    if not community:
+        return jsonify(msg='Community not found'), 404
+
+    if community not in current_user.communities:
+        return '', 204
+
+    current_user.communities.remove(community)
+    db.session.commit()
+
+    return '', 204
 
 
 @app.route('/api/users/<int:user_id>/profile-picture', methods=['GET'])
