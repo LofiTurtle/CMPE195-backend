@@ -21,9 +21,27 @@ if __name__ == '__main__':
         user1.followers.append(user2)
         user3.following.append(user1)
 
+        # IGDB information for Stardew Valley and Elden Ring
+        game1 = IgdbGame(
+            id=17000,
+            name='Stardew Valley',
+            cover='https://images.igdb.com/igdb/image/upload/t_cover_big/xrpmydnu9rpxvxfjkiu7.jpg',
+            artwork='https://images.igdb.com/igdb/image/upload/t_1080p/ar5l8.jpg',
+            summary='Stardew Valley is an open-ended country-life RPG! You’ve inherited your grandfather’s old farm plot in Stardew Valley. Armed with hand-me-down tools and a few coins, you set out to begin your new life. Can you learn to live off the land and turn these overgrown fields into a thriving home? It won’t be easy. Ever since Joja Corporation came to town, the old ways of life have all but disappeared. The community center, once the town’s most vibrant hub of activity, now lies in shambles. But the valley seems full of opportunity. With a little dedication, you might just be the one to restore Stardew Valley to greatness!',
+            first_release_date=datetime.fromtimestamp(1456444800)
+        )
+        game2 = IgdbGame(
+            id=119133,
+            name='Elden Ring',
+            cover='https://images.igdb.com/igdb/image/upload/t_thumb/co4jni.jpg',
+            artwork='https://images.igdb.com/igdb/image/upload/t_thumb/ar1481.jpg',
+            summary='Elden Ring is an action RPG developed by FromSoftware and published by Bandai Namco Entertainment, released in February 2022. Directed by Hidetaka Miyazaki, with world-building contributions from novelist George R. R. Martin, the game features an expansive open world called the Lands Between. Players assume the role of a customisable character known as the Tarnished, who must explore this world, battle formidable enemies, and seek to restore the Elden Ring to become the Elden Lord.\n\nThe game builds on the challenging gameplay mechanics familiar from the Dark Souls series but introduces a more open-ended structure with vast exploration, dynamic weather, and a day-night cycle. It offers deep lore, complex characters, and an interconnected world filled with secrets, dungeons, and powerful bosses.',
+            first_release_date=datetime.fromtimestamp(1645747200)
+        )
+
         # 2 default communities, 1 with all users in it and another empty
-        community1 = Community(name='Popular Community')
-        community2 = Community(name='Unpopular Community')
+        community1 = Community(name='Stardew Valley Test Community', owner=user1, game=game1)
+        community2 = Community(name='Elden Ring Test Community', owner=user2, game=game2)
 
         community1.users.append(user1)
         community1.users.append(user2)

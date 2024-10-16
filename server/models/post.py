@@ -27,16 +27,45 @@ class Community(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True)
+    igbd_id = db.Column(db.Integer, db.ForeignKey('igbd_game.id'), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
     posts = db.relationship('Post', back_populates='community')
     users = db.relationship('User', secondary=user_communities, back_populates='communities')
+    game = db.relationship('IgdbGame', back_populates='community', uselist=False)
+    owner = db.relationship('User', back_populates='owned_communities', uselist=False)
 
     def serialize(self):
         """Return object data in JSON format"""
         return {
             'id': self.id,
             'name': self.name,
-            'num_users': len(self.users)
-            
+            'num_users': len(self.users),
+            'owner_id': self.owner.id,
+            'game': self.game.serialize(),
+        }
+
+
+class IgdbGame(db.Model):
+    __tablename__ = 'igbd_game'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    cover = db.Column(db.String(100))
+    artwork = db.Column(db.String(100))
+    summary = db.Column(db.String(1000))
+    first_release_date = db.Column(db.DateTime)
+
+    community = db.relationship('Community', back_populates='game', uselist=False)
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'cover': self.cover,
+            'artwork': self.artwork,
+            'summary': self.summary,
+            'first_release_date': self.first_release_date,
         }
 
 

@@ -29,6 +29,7 @@ class User(db.Model):
     comments = db.relationship('Comment', back_populates='author')
     liked_comments = db.relationship('Comment', secondary='comment_likes', back_populates='likes')
     communities = db.relationship('Community', secondary='user_communities', back_populates='users')
+    owned_communities = db.relationship('Community', back_populates='owner')
     following = db.relationship(
         'User',
         secondary=user_following,

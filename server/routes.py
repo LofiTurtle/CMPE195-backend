@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -8,8 +9,9 @@ from flask_jwt_extended import decode_token, create_access_token, jwt_required, 
 from pysteamsignin.steamsignin import SteamSignIn
 
 from server import app, db, jwt
-from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount
+from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, IgdbGame
 from server.services import fetch_discord_account_data, validate_password
+from server.services.games_service import search_igdb_games, get_game, IGDBError, api_response_to_model
 from server.services.media_processing import save_image, delete_image
 
 
@@ -298,7 +300,59 @@ def get_user_posts(user_id):
     return jsonify(posts=[post.serialize() for post in user_posts])
 
 
-@app.route('/api/community/<int:community_id>', methods=['GET'])
+@app.route('/api/game-search', methods=['GET'])
+def game_search():
+    search_term = request.args.get('q')
+    if search_term is None:
+        return jsonify(msg='No search term provided'), 400
+
+    games = search_igdb_games(search_term)
+    igdb_games = []
+    for game in games:
+        igdb_games.append(api_response_to_model(game))
+
+    return jsonify(games=[game.serialize() for game in igdb_games])
+
+
+@app.route('/api/game-info/<int:game_id>', methods=['GET'])
+def game_info(game_id):
+    try:
+        game = get_game(game_id)
+        igdb_game = api_response_to_model(game)
+        return jsonify(game=igdb_game.serialize())
+    except IGDBError:
+        return jsonify(msg='Game not found'), 404
+
+
+@app.route('/api/communities', methods=['POST'])
+@jwt_required()
+def create_community():
+    current_user = User.query.filter_by(id=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify(msg='Logged in user not found'), 404
+
+    game_id = request.json.get('game_id', None)
+    community_name = request.json.get('community_name', None)
+
+    if not game_id:
+        return jsonify(msg='Game not found'), 404
+
+    if not community_name:
+        return jsonify(msg='Community name not provided'), 400
+
+    game = get_game(game_id)
+    print(game)
+
+    igdb_game = api_response_to_model(game)
+
+    community = Community(name=community_name, game=igdb_game, owner=current_user)
+
+    db.session.add(community)
+    db.session.commit()
+    return jsonify(community=community.serialize()), 201
+
+
+@app.route('/api/communities/<int:community_id>', methods=['GET'])
 def get_community(community_id):
     community = Community.query.get(community_id)
     if not community:
@@ -306,7 +360,7 @@ def get_community(community_id):
     return jsonify(community=community.serialize())
 
 
-@app.route('/api/community/<int:community_id>/posts', methods=['GET'])
+@app.route('/api/communities/<int:community_id>/posts', methods=['GET'])
 def get_community_posts(community_id):
     community = Community.query.get(community_id)
     if not community:
@@ -373,6 +427,8 @@ def get_post_image(post_id):
     post = Post.query.get(post_id)
     if not post:
         return jsonify(msg='Post not found'), 404
+    if post.image_id is None:
+        return jsonify(msg='Post has no associated image'), 404
     filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], post.image_id + '.jpg'))
     if os.path.exists(filepath):
         return send_file(filepath, mimetype='image/jpeg')
@@ -419,6 +475,37 @@ def get_linked_accounts(user_id):
         'discord': fetch_discord_account_data(user_id),
         'steam': None
     })
+
+
+@app.route('/api/search', methods=['GET'])
+def search():
+    # TODO search through communities, posts, and users w/ query param for search type(s)
+    query = request.args.get('q')
+    return []
+
+
+@app.route('/api/search/games', methods=['GET'])
+def search_games():
+    query = request.args.get('q')
+    games = search_igdb_games(query)
+
+    print(json.dumps(games[0], indent=2))
+
+    # Create in-memory list of ORM models for serialization, but don't save to DB
+    igdb_games = []
+    for game in games:
+        igdb_game = IgdbGame(id=game['id'], name=game['name'])
+        if 'cover' in game:
+            igdb_game.cover = game['cover']['url']
+        if 'artworks' in game:
+            igdb_game.artwork = game['artworks'][0]['url']
+        if 'summary' in game:
+            igdb_game.summary = game['summary']
+        if 'first_release_date' in game:
+            igdb_game.first_release_date = game['first_release_date']
+        igdb_games.append(igdb_game)
+
+    return jsonify([game.serialize() for game in igdb_games])
 
 
 @app.route('/api/discord/connect')
