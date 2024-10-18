@@ -46,6 +46,7 @@ if __name__ == '__main__':
         community1.users.append(user1)
         community1.users.append(user2)
         community1.users.append(user3)
+        community2.users.append(user1)
 
         # user 1 has 1 post, user 2 has 2, etc.
         post1a = Post(title='Post 1a', content='This is post 1a', community=community1, author=user1)
