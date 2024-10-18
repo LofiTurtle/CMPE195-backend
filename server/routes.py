@@ -140,7 +140,7 @@ def get_followers(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify(msg='User not found'), 404
-    return jsonify(followers=[follower.serialize() for follower in user.followers])
+    return jsonify(users=[follower.serialize() for follower in user.followers])
 
 
 @app.route('/api/users/<int:user_id>/following', methods=['GET'])
@@ -148,7 +148,7 @@ def get_following(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify(msg='User not found'), 404
-    return jsonify(following=[following_user.serialize() for following_user in user.following])
+    return jsonify(users=[following_user.serialize() for following_user in user.following])
 
 
 @app.route('/api/users/<int:target_user_id>/follow', methods=['POST'])
