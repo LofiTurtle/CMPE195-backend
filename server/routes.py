@@ -1,6 +1,8 @@
 import json
 import os
 from datetime import datetime, timedelta
+from enum import Enum
+from operator import or_
 
 import requests
 from flask import jsonify, request, redirect, send_file, render_template
@@ -477,11 +479,29 @@ def get_linked_accounts(user_id):
     })
 
 
+class SearchTypes(Enum):
+    COMMUNITY = 'community'
+    USER = 'user'
+
+
 @app.route('/api/search', methods=['GET'])
 def search():
-    # TODO search through communities, posts, and users w/ query param for search type(s)
     query = request.args.get('q')
-    return []
+    search_type = request.args.get('type')
+
+    if search_type == SearchTypes.COMMUNITY.value:
+        communities = Community.query.join(Community.game).filter(
+            or_(
+                Community.name.ilike('%' + query + '%'),
+                IgdbGame.name.ilike('%' + query + '%'),
+            )
+        ).all()
+        return jsonify(communities=[community.serialize() for community in communities])
+    elif search_type == SearchTypes.USER.value:
+        users = User.query.filter(User.username.like('%' + query + '%')).all()
+        return jsonify(users=[user.serialize() for user in users])
+    else:
+        return jsonify(msg='Invalid search type'), 400
 
 
 @app.route('/api/search/games', methods=['GET'])
@@ -494,16 +514,7 @@ def search_games():
     # Create in-memory list of ORM models for serialization, but don't save to DB
     igdb_games = []
     for game in games:
-        igdb_game = IgdbGame(id=game['id'], name=game['name'])
-        if 'cover' in game:
-            igdb_game.cover = game['cover']['url']
-        if 'artworks' in game:
-            igdb_game.artwork = game['artworks'][0]['url']
-        if 'summary' in game:
-            igdb_game.summary = game['summary']
-        if 'first_release_date' in game:
-            igdb_game.first_release_date = game['first_release_date']
-        igdb_games.append(igdb_game)
+        igdb_games.append(api_response_to_model(game))
 
     return jsonify([game.serialize() for game in igdb_games])
 
