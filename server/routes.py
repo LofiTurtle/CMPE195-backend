@@ -587,32 +587,3 @@ def discord_disconnect():
     db.session.commit()
 
     return jsonify(msg='Disconnected from Discord')
-
-
-@app.route('/api/steamlogin')
-def steam_login():
-    received_access_token = request.headers['jwt']
-    steamLogin = SteamSignIn()
-    # Flask expects an explicit return on the route.
-    return steamLogin.RedirectUser(steamLogin.ConstructURL('http://localhost:8080/processlogin'))
-
-
-@app.route('/processlogin')
-def process():
-
-    return_data = request.values
-
-    steamLogin = SteamSignIn()
-    steam_id = steamLogin.ValidateResults(return_data)
-    values = decode_token(received_access_token)
-    print(values)
-    print('SteamID returned is: ', steam_id)
-
-    # if steam_id is not False:
-    #     return 'We logged in successfully!<br />SteamID: {0}'.format(steam_id)
-    # else:
-    #     return 'Failed to log in, bad details?'
-
-    # At this point, redirect the user to a friendly URL
-
-    return redirect('http://localhost:5173/Dashboard')
