@@ -438,13 +438,6 @@ def get_post_image(post_id):
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
 
 
-@app.route('/create-post-test', methods=['GET'])
-@jwt_required()
-def create_post_test():
-    # TODO remove this once posts w/ images are implemented in React
-    return render_template('create_post.html')
-
-
 @app.route('/api/comments', methods=['POST'])
 def create_comment():
     content = request.json.get('content', None)
