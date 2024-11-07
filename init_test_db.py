@@ -1,6 +1,16 @@
+import time
+from datetime import timedelta
+
 from server import app, db
 from server.models.user import *
 from server.models.post import *
+
+def stagger_add(objects: list, delay_s: int = .05):
+    for obj in objects:
+        db.session.add(obj)
+        db.session.commit()
+        time.sleep(delay_s)
+
 
 if __name__ == '__main__':
     response = input('Are you sure you want to delete and recreate the database with test data? y/n ')
@@ -65,6 +75,13 @@ if __name__ == '__main__':
         post2a.likes.append(user3)
         post2b.likes.append(user3)
 
+        # Old but highly liked post
+        popular_post = Post(title='Old but popular post', content='Wow', community=community1, author=user1)
+        popular_post.created_at = datetime.now() - timedelta(days=5)
+        popular_post.likes.append(user1)
+        popular_post.likes.append(user2)
+        popular_post.likes.append(user3)
+
         # each user comments on the next user's #a post
         comment1 = Comment(content='This is comment 1 on post 2a', post=post2a, author=user1)
         comment2 = Comment(content='This is comment 2 on post 3a', post=post3a, author=user2)
@@ -86,18 +103,21 @@ if __name__ == '__main__':
         db.session.add(community1)
         db.session.add(community2)
 
-        db.session.add(post1a)
-        db.session.add(post2a)
-        db.session.add(post2b)
-        db.session.add(post3a)
-        db.session.add(post3b)
-        db.session.add(post3c)
+        stagger_add([
+            post1a,
+            post2a,
+            post2b,
+            post3a,
+            post3b,
+            post3c,
+            unpopular_post,
+        ])
 
-        db.session.add(unpopular_post)
-
-        db.session.add(comment1)
-        db.session.add(comment2)
-        db.session.add(comment3)
+        stagger_add([
+            comment1,
+            comment2,
+            comment3
+        ])
 
         db.session.commit()
 

@@ -4,15 +4,16 @@ from datetime import datetime, timedelta
 from enum import Enum
 from operator import or_
 
+import flask
 import requests
 from flask import jsonify, request, redirect, send_file, render_template
-from flask_jwt_extended import decode_token, create_access_token, jwt_required, \
+from flask_jwt_extended import create_access_token, jwt_required, \
     get_jwt_identity, set_access_cookies, get_jwt, unset_access_cookies
-from pysteamsignin.steamsignin import SteamSignIn
 
 from server import app, db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, IgdbGame
 from server.services import fetch_discord_account_data, validate_password
+from server.services.feed_service import get_feed_posts, SortType
 from server.services.games_service import search_igdb_games, get_game, IGDBError, api_response_to_model
 from server.services.media_processing import save_image, delete_image
 
@@ -293,15 +294,6 @@ def edit_profile_test():
     return render_template('edit_profile.html')
 
 
-@app.route('/api/users/<int:user_id>/posts', methods=['GET'])
-def get_user_posts(user_id):
-    user = User.query.filter_by(id=user_id).first()
-    if not user:
-        return jsonify(msg='User not found'), 404
-    user_posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
-    return jsonify(posts=[post.serialize() for post in user_posts])
-
-
 @app.route('/api/game-search', methods=['GET'])
 def game_search():
     search_term = request.args.get('q')
@@ -362,23 +354,49 @@ def get_community(community_id):
     return jsonify(community=community.serialize())
 
 
+def validate_sort_type(sort_type: str) -> tuple[str, bool]:
+    if sort_type is None:
+        # Default to 'hot' sorting
+        sort_type = SortType.HOT.value
+    return sort_type, sort_type in SortType
+
+
+@app.route('/api/users/<int:user_id>/posts', methods=['GET'])
+def get_user_posts(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify(msg='User not found'), 404
+    sort_type, valid = validate_sort_type(request.args.get('sort'))
+    if not valid:
+        return jsonify(msg=f'Invalid sort type: {sort_type}'), 400
+    user_posts = get_feed_posts(sort_type, user=user)
+    return jsonify(posts=[post.serialize() for post in user_posts])
+
+
 @app.route('/api/communities/<int:community_id>/posts', methods=['GET'])
 def get_community_posts(community_id):
     community = Community.query.get(community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
-    community_posts = Post.query.filter_by(community_id=community_id).order_by(Post.created_at.desc()).all()
+    sort_type, valid = validate_sort_type(request.args.get('sort'))
+    if not valid:
+        return jsonify(msg=f'Invalid sort type: {sort_type}'), 400
+    community_posts = get_feed_posts(sort_type, community=community)
     return jsonify(posts=[post.serialize() for post in community_posts])
 
 
 @app.route('/api/homepage', methods=['GET'])
+@jwt_required()
 def homepage():
     """
     :return: Posts for this user's homepage
     """
-    # TODO return only posts from the user's followed communities, not all communities
-    # TODO support different sorting orders
-    homepage_posts = Post.query.order_by(Post.created_at.desc()).limit(10)
+    user = User.query.filter_by(id=get_jwt_identity()).first()
+    sort_type, valid = validate_sort_type(request.args.get('sort'))
+    if not valid:
+        return jsonify(msg=f'Invalid sort type: {sort_type}'), 400
+
+    homepage_posts = get_feed_posts(sort_type, current_user=user)
     return jsonify(posts=[post.serialize() for post in homepage_posts])
 
 
@@ -436,13 +454,6 @@ def get_post_image(post_id):
         return send_file(filepath, mimetype='image/jpeg')
     else:
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
-
-
-@app.route('/create-post-test', methods=['GET'])
-@jwt_required()
-def create_post_test():
-    # TODO remove this once posts w/ images are implemented in React
-    return render_template('create_post.html')
 
 
 @app.route('/api/comments', methods=['POST'])
