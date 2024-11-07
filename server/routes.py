@@ -294,20 +294,6 @@ def edit_profile_test():
     return render_template('edit_profile.html')
 
 
-@app.route('/api/game-search', methods=['GET'])
-def game_search():
-    search_term = request.args.get('q')
-    if search_term is None:
-        return jsonify(msg='No search term provided'), 400
-
-    games = search_igdb_games(search_term)
-    igdb_games = []
-    for game in games:
-        igdb_games.append(api_response_to_model(game))
-
-    return jsonify(games=[game.serialize() for game in igdb_games])
-
-
 @app.route('/api/game-info/<int:game_id>', methods=['GET'])
 def game_info(game_id):
     try:
@@ -490,44 +476,45 @@ def get_linked_accounts(user_id):
     })
 
 
-class SearchTypes(Enum):
-    COMMUNITY = 'community'
-    USER = 'user'
-
-
-@app.route('/api/search', methods=['GET'])
-def search():
+@app.route('/api/search/communities', methods=['GET'])
+def search_communities():
     query = request.args.get('q')
-    search_type = request.args.get('type')
+    if not query:
+        return jsonify(msg='Search query is required'), 400
 
-    if search_type == SearchTypes.COMMUNITY.value:
-        communities = Community.query.join(Community.game).filter(
-            or_(
-                Community.name.ilike('%' + query + '%'),
-                IgdbGame.name.ilike('%' + query + '%'),
-            )
-        ).all()
-        return jsonify(communities=[community.serialize() for community in communities])
-    elif search_type == SearchTypes.USER.value:
-        users = User.query.filter(User.username.like('%' + query + '%')).all()
-        return jsonify(users=[user.serialize() for user in users])
-    else:
-        return jsonify(msg='Invalid search type'), 400
+    communities = Community.query.join(Community.game).filter(
+        or_(
+            Community.name.ilike(f'%{query}%'),
+            IgdbGame.name.ilike(f'%{query}%'),
+        )
+    ).all()
+
+    return jsonify(communities=[community.serialize() for community in communities])
+
+
+@app.route('/api/search/users', methods=['GET'])
+def search_users():
+    query = request.args.get('q')
+    if not query:
+        return jsonify(msg='Search query is required'), 400
+
+    users = User.query.filter(User.username.ilike(f'%{query}%')).all()
+
+    return jsonify(users=[user.serialize() for user in users])
 
 
 @app.route('/api/search/games', methods=['GET'])
 def search_games():
-    query = request.args.get('q')
-    games = search_igdb_games(query)
+    search_term = request.args.get('q')
+    if search_term is None:
+        return jsonify(msg='No search term provided'), 400
 
-    print(json.dumps(games[0], indent=2))
-
-    # Create in-memory list of ORM models for serialization, but don't save to DB
+    games = search_igdb_games(search_term)
     igdb_games = []
     for game in games:
         igdb_games.append(api_response_to_model(game))
 
-    return jsonify([game.serialize() for game in igdb_games])
+    return jsonify(games=[game.serialize() for game in igdb_games])
 
 
 @app.route('/api/discord/connect')
