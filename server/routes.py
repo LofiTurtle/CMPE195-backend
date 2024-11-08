@@ -281,11 +281,12 @@ def get_user_profile_picture(user_id):
     user = User.query.get(user_id)
     if not user:
         return jsonify(msg='User not found'), 404
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], user.profile.profile_picture_id + '.jpg'))
+    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
     if os.path.exists(filepath):
         return send_file(filepath, mimetype='image/jpeg')
     else:
-        return jsonify(msg='Profile picture not found'), 404
+        default_profile_filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], 'default-profile.png'))
+        return send_file(default_profile_filepath, mimetype='image/png')
 
 
 @app.route('/edit-profile-test', methods=['GET'])
