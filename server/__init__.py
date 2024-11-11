@@ -1,8 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
-
-db = SQLAlchemy()
+from server.models import db
 
 app = Flask(__name__)
 app.config.from_pyfile('config.py')
