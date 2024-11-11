@@ -138,6 +138,19 @@ def get_user(user_id):
     return jsonify(user=user.serialize())
 
 
+@api.route('/users/<int:user_id>/profile-picture', methods=['GET'])
+def get_user_profile_picture(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(msg='User not found'), 404
+    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='image/jpeg')
+    else:
+        default_profile_filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], 'default-profile.png'))
+        return send_file(default_profile_filepath, mimetype='image/png')
+
+
 @api.route('/users/<int:user_id>/followers', methods=['GET'])
 def get_followers(user_id):
     user = User.query.filter_by(id=user_id).first()
@@ -274,19 +287,6 @@ def unfollow_community(community_id):
     db.session.commit()
 
     return '', 204
-
-
-@api.route('/users/<int:user_id>/profile-picture', methods=['GET'])
-def get_user_profile_picture(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify(msg='User not found'), 404
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
-    if os.path.exists(filepath):
-        return send_file(filepath, mimetype='image/jpeg')
-    else:
-        default_profile_filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], 'default-profile.png'))
-        return send_file(default_profile_filepath, mimetype='image/png')
 
 
 @api.route('/edit-profile-test', methods=['GET'])
@@ -514,7 +514,10 @@ def search_games():
     if search_term is None:
         return jsonify(msg='No search term provided'), 400
 
-    games = search_igdb_games(search_term)
+    try:
+        games = search_igdb_games(search_term)
+    except IGDBError:
+        return jsonify(msg='IGDB API Error'), 404
     igdb_games = []
     for game in games:
         igdb_games.append(api_response_to_model(game))
@@ -554,9 +557,11 @@ def discord_callback():
 
     # TODO save token to database & fetch initial info
 
-    access_token = token_data['access_token']
-    refresh_token = token_data['refresh_token']
-    expires_in = token_data['expires_in']
+    access_token = token_data.get('access_token', None)
+    refresh_token = token_data.get('refresh_token', None)
+    expires_in = token_data.get('expires_in', None)
+    if access_token is None or refresh_token is None or expires_in is None:
+        return jsonify(success=False, msg='Invalid authorization code'), 400
     expires_at = datetime.now() + timedelta(seconds=expires_in)
 
     user = User.query.get(get_jwt_identity())
@@ -583,7 +588,7 @@ def discord_callback():
     fetch_discord_account_data(user.id)
 
     # redirect to user's account page
-    return redirect(app.config['REACT_APP_URL'] + f'/users/{get_jwt_identity()}')
+    return redirect(f'{app.config['REACT_APP_URL']}/users/{get_jwt_identity()}')
 
 
 @api.route('/discord/disconnect', methods=['POST'])
