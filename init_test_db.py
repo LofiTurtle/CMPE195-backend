@@ -27,6 +27,9 @@ if __name__ == '__main__':
         user2 = User(username='user2', password='password2')
         user3 = User(username='user3', password='password3')
 
+        # Longer bio for user2
+        user2.profile.bio = 'This is a default bio. However, it has many words in it so it is longer than the other default bios and it may take up more space in the user interface, therefore it is good for testing things.'
+
         # everyone else follows user1
         user1.followers.append(user2)
         user3.following.append(user1)
@@ -43,8 +46,8 @@ if __name__ == '__main__':
         game2 = IgdbGame(
             id=119133,
             name='Elden Ring',
-            cover='https://images.igdb.com/igdb/image/upload/t_thumb/co4jni.jpg',
-            artwork='https://images.igdb.com/igdb/image/upload/t_thumb/ar1481.jpg',
+            cover='https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg',
+            artwork='https://images.igdb.com/igdb/image/upload/t_1080p/ar1481.jpg',
             summary='Elden Ring is an action RPG developed by FromSoftware and published by Bandai Namco Entertainment, released in February 2022. Directed by Hidetaka Miyazaki, with world-building contributions from novelist George R. R. Martin, the game features an expansive open world called the Lands Between. Players assume the role of a customisable character known as the Tarnished, who must explore this world, battle formidable enemies, and seek to restore the Elden Ring to become the Elden Lord.\n\nThe game builds on the challenging gameplay mechanics familiar from the Dark Souls series but introduces a more open-ended structure with vast exploration, dynamic weather, and a day-night cycle. It offers deep lore, complex characters, and an interconnected world filled with secrets, dungeons, and powerful bosses.',
             first_release_date=datetime.fromtimestamp(1645747200)
         )
