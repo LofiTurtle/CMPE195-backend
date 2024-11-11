@@ -16,7 +16,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 IGDB_CLIENT_ID = os.getenv('IGDB_CLIENT_ID')
 IGDB_CLIENT_SECRET = os.getenv('IGDB_CLIENT_SECRET')
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
-JWT_TOKEN_LOCATION = ['cookies']
+JWT_TOKEN_LOCATION = ['cookies', 'headers']
 JWT_COOKIE_SECURE = False
 JWT_COOKIE_CSRF_PROTECT = False
 JWT_ACCESS_TOKEN_EXPIRES = datetime.timedelta(days=1)
