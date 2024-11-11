@@ -37,8 +37,6 @@ def save_image(image, max_size: int = 512) -> str:
 
 def delete_image(image_id: str) -> None:
     """Delete a profile picture"""
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], image_id + '.jpg'))
+    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{image_id}.jpg'))
     if os.path.exists(filepath):
         os.remove(filepath)
-    else:
-        raise FileNotFoundError(f'Could not remove image with id: {image_id}')
