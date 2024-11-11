@@ -1,12 +1,9 @@
-import json
 import os
 from datetime import datetime, timedelta
-from enum import Enum
 from operator import or_
 
-import flask
 import requests
-from flask import jsonify, request, redirect, send_file, render_template
+from flask import jsonify, request, redirect, send_file, render_template, Blueprint
 from flask_jwt_extended import create_access_token, jwt_required, \
     get_jwt_identity, set_access_cookies, get_jwt, unset_access_cookies
 
@@ -18,7 +15,10 @@ from server.services.games_service import search_igdb_games, get_game, IGDBError
 from server.services.media_processing import save_image, delete_image
 
 
-@app.route('/api/register', methods=['POST'])
+api = Blueprint('api', __name__, url_prefix='/api')
+
+
+@api.route('/register', methods=['POST'])
 def register():
     """
     Creates a new user account. Accepts JSON payload with `username` and `password` fields.
@@ -48,7 +48,7 @@ def register():
     return response, 201
 
 
-@app.route('/api/login', methods=['POST'])
+@api.route('/login', methods=['POST'])
 def login():
     """
     Logs in an existing user. Accepts JSON payload with `username` and `password` fields.
@@ -78,7 +78,7 @@ def is_token_revoked(jwt_headers, jwt_payload):
     return token is not None
 
 
-@app.route('/api/logout', methods=['POST'])
+@api.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
     """Logs a user out, removing the access token cookie and revoking the token."""
@@ -90,7 +90,7 @@ def logout():
     return response, 200
 
 
-@app.route('/api/me', methods=['GET'])
+@api.route('/me', methods=['GET'])
 @jwt_required()
 def me():
     """
@@ -103,7 +103,7 @@ def me():
     return jsonify(user=user.serialize())
 
 
-@app.route('/api/me', methods=['PATCH', 'POST'])
+@api.route('/me', methods=['PATCH', 'POST'])
 @jwt_required()
 def edit_profile():
     """Takes username, bio, and profile_picture as form data"""
@@ -130,7 +130,7 @@ def edit_profile():
     return jsonify(user=user.serialize())
 
 
-@app.route('/api/users/<int:user_id>', methods=['GET'])
+@api.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -138,7 +138,7 @@ def get_user(user_id):
     return jsonify(user=user.serialize())
 
 
-@app.route('/api/users/<int:user_id>/followers', methods=['GET'])
+@api.route('/users/<int:user_id>/followers', methods=['GET'])
 def get_followers(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -146,7 +146,7 @@ def get_followers(user_id):
     return jsonify(users=[follower.serialize() for follower in user.followers])
 
 
-@app.route('/api/users/<int:user_id>/following', methods=['GET'])
+@api.route('/users/<int:user_id>/following', methods=['GET'])
 def get_following(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -154,7 +154,7 @@ def get_following(user_id):
     return jsonify(users=[following_user.serialize() for following_user in user.following])
 
 
-@app.route('/api/users/<int:target_user_id>/follow', methods=['POST'])
+@api.route('/users/<int:target_user_id>/follow', methods=['POST'])
 @jwt_required()
 def follow(target_user_id):
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
@@ -177,7 +177,7 @@ def follow(target_user_id):
     return '', 201
 
 
-@app.route('/api/users/<int:target_user_id>/follow', methods=['DELETE'])
+@api.route('/users/<int:target_user_id>/follow', methods=['DELETE'])
 @jwt_required()
 def unfollow(target_user_id):
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
@@ -200,7 +200,7 @@ def unfollow(target_user_id):
     return '', 204
 
 
-@app.route('/api/users/<int:target_user_id>/relationship', methods=['GET'])
+@api.route('/users/<int:target_user_id>/relationship', methods=['GET'])
 @jwt_required()
 def get_relationship(target_user_id):
     """Get the following/followed-by relationship between the current and target users"""
@@ -216,7 +216,7 @@ def get_relationship(target_user_id):
                    followed_by=target_user in current_user.followers)
 
 
-@app.route('/api/users/<int:user_id>/communities', methods=['GET'])
+@api.route('/users/<int:user_id>/communities', methods=['GET'])
 def get_user_communities(user_id):
     """Get the communities a user follows"""
     user = User.query.filter_by(id=user_id).first()
@@ -226,7 +226,7 @@ def get_user_communities(user_id):
     return jsonify(communities=[community.serialize() for community in user.communities])
 
 
-@app.route('/api/communities/<int:community_id>/users', methods=['GET'])
+@api.route('/communities/<int:community_id>/users', methods=['GET'])
 def get_community_users(community_id):
     """Get the users who follow a community"""
     community = Community.query.filter_by(id=community_id).first()
@@ -236,7 +236,7 @@ def get_community_users(community_id):
     return jsonify(users=[user.serialize() for user in community.users])
 
 
-@app.route('/api/communities/<int:community_id>/follow', methods=['POST'])
+@api.route('/communities/<int:community_id>/follow', methods=['POST'])
 @jwt_required()
 def follow_community(community_id):
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
@@ -256,7 +256,7 @@ def follow_community(community_id):
     return '', 201
 
 
-@app.route('/api/communities/<int:community_id>/follow', methods=['DELETE'])
+@api.route('/communities/<int:community_id>/follow', methods=['DELETE'])
 @jwt_required()
 def unfollow_community(community_id):
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
@@ -276,7 +276,7 @@ def unfollow_community(community_id):
     return '', 204
 
 
-@app.route('/api/users/<int:user_id>/profile-picture', methods=['GET'])
+@api.route('/users/<int:user_id>/profile-picture', methods=['GET'])
 def get_user_profile_picture(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -289,13 +289,13 @@ def get_user_profile_picture(user_id):
         return send_file(default_profile_filepath, mimetype='image/png')
 
 
-@app.route('/edit-profile-test', methods=['GET'])
+@api.route('/edit-profile-test', methods=['GET'])
 def edit_profile_test():
     # TODO remove this after profile editing is implemented
     return render_template('edit_profile.html')
 
 
-@app.route('/api/game-info/<int:game_id>', methods=['GET'])
+@api.route('/game-info/<int:game_id>', methods=['GET'])
 def game_info(game_id):
     try:
         game = get_game(game_id)
@@ -305,7 +305,7 @@ def game_info(game_id):
         return jsonify(msg='Game not found'), 404
 
 
-@app.route('/api/communities', methods=['POST'])
+@api.route('/communities', methods=['POST'])
 @jwt_required()
 def create_community():
     current_user = User.query.filter_by(id=get_jwt_identity()).first()
@@ -329,11 +329,15 @@ def create_community():
     community = Community(name=community_name, game=igdb_game, owner=current_user)
 
     db.session.add(community)
+
+    # Make user follow their new community by default
+    current_user.communities.append(community)
+
     db.session.commit()
     return jsonify(community=community.serialize()), 201
 
 
-@app.route('/api/communities/<int:community_id>', methods=['GET'])
+@api.route('/communities/<int:community_id>', methods=['GET'])
 def get_community(community_id):
     community = Community.query.get(community_id)
     if not community:
@@ -348,7 +352,7 @@ def validate_sort_type(sort_type: str) -> tuple[str, bool]:
     return sort_type, sort_type in SortType
 
 
-@app.route('/api/users/<int:user_id>/posts', methods=['GET'])
+@api.route('/users/<int:user_id>/posts', methods=['GET'])
 def get_user_posts(user_id):
     user = User.query.filter_by(id=user_id).first()
     if not user:
@@ -360,7 +364,7 @@ def get_user_posts(user_id):
     return jsonify(posts=[post.serialize() for post in user_posts])
 
 
-@app.route('/api/communities/<int:community_id>/posts', methods=['GET'])
+@api.route('/communities/<int:community_id>/posts', methods=['GET'])
 def get_community_posts(community_id):
     community = Community.query.get(community_id)
     if not community:
@@ -372,7 +376,7 @@ def get_community_posts(community_id):
     return jsonify(posts=[post.serialize() for post in community_posts])
 
 
-@app.route('/api/homepage', methods=['GET'])
+@api.route('/homepage', methods=['GET'])
 @jwt_required()
 def homepage():
     """
@@ -387,7 +391,7 @@ def homepage():
     return jsonify(posts=[post.serialize() for post in homepage_posts])
 
 
-@app.route('/api/posts/<int:post_id>', methods=['GET'])
+@api.route('/posts/<int:post_id>', methods=['GET'])
 def get_post(post_id):
     """
     :return: The post with the given ID
@@ -398,7 +402,7 @@ def get_post(post_id):
     return jsonify(post=post.serialize())
 
 
-@app.route('/api/posts', methods=['POST'])
+@api.route('/posts', methods=['POST'])
 @jwt_required()
 def create_post():
     title = request.form.get('title', None)
@@ -429,7 +433,7 @@ def create_post():
     return response, 201
 
 
-@app.route('/api/posts/<int:post_id>/image', methods=['GET'])
+@api.route('/posts/<int:post_id>/image', methods=['GET'])
 def get_post_image(post_id):
     post = Post.query.get(post_id)
     if not post:
@@ -443,7 +447,7 @@ def get_post_image(post_id):
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
 
 
-@app.route('/api/comments', methods=['POST'])
+@api.route('/comments', methods=['POST'])
 def create_comment():
     content = request.json.get('content', None)
     author_id = request.json.get('author_id', None)
@@ -464,8 +468,8 @@ def create_comment():
     return response, 201
 
 
-@app.route('/api/linked-accounts', methods=['GET'], defaults={'user_id': None})
-@app.route('/api/linked-accounts/<string:user_id>', methods=['GET'])
+@api.route('/linked-accounts', methods=['GET'], defaults={'user_id': None})
+@api.route('/linked-accounts/<string:user_id>', methods=['GET'])
 def get_linked_accounts(user_id):
     if user_id is None:
         # TODO use session to get current user ID
@@ -477,7 +481,7 @@ def get_linked_accounts(user_id):
     })
 
 
-@app.route('/api/search/communities', methods=['GET'])
+@api.route('/search/communities', methods=['GET'])
 def search_communities():
     query = request.args.get('q')
     if not query:
@@ -493,7 +497,7 @@ def search_communities():
     return jsonify(communities=[community.serialize() for community in communities])
 
 
-@app.route('/api/search/users', methods=['GET'])
+@api.route('/search/users', methods=['GET'])
 def search_users():
     query = request.args.get('q')
     if not query:
@@ -504,7 +508,7 @@ def search_users():
     return jsonify(users=[user.serialize() for user in users])
 
 
-@app.route('/api/search/games', methods=['GET'])
+@api.route('/search/games', methods=['GET'])
 def search_games():
     search_term = request.args.get('q')
     if search_term is None:
@@ -518,7 +522,7 @@ def search_games():
     return jsonify(games=[game.serialize() for game in igdb_games])
 
 
-@app.route('/api/discord/connect')
+@api.route('/discord/connect')
 @jwt_required()
 def discord_connect():
     params = {
@@ -531,7 +535,7 @@ def discord_connect():
     return redirect(authorization_url)
 
 
-@app.route('/api/discord/callback')
+@api.route('/discord/callback')
 @jwt_required()
 def discord_callback():
     code = request.args.get('code')
@@ -582,7 +586,7 @@ def discord_callback():
     return redirect(app.config['REACT_APP_URL'] + f'/users/{get_jwt_identity()}')
 
 
-@app.route('/api/discord/disconnect', methods=['POST'])
+@api.route('/discord/disconnect', methods=['POST'])
 @jwt_required()
 def discord_disconnect():
     user = User.query.get(get_jwt_identity())
