@@ -74,7 +74,6 @@ def get_game(game_id):
 
 
 def api_response_to_model(game):
-    print(game)
     return IgdbGame(id=game['id'],
                     name=game['name'],
                     cover=game['cover']['url'] if 'cover' in game else None,
