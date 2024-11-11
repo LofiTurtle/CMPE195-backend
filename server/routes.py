@@ -322,7 +322,6 @@ def create_community():
         return jsonify(msg='Community name not provided'), 400
 
     game = get_game(game_id)
-    print(game)
 
     igdb_game = api_response_to_model(game)
 
