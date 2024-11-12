@@ -587,7 +587,7 @@ def discord_callback():
     fetch_discord_account_data(user.id)
 
     # redirect to user's account page
-    return redirect(f'{app.config['REACT_APP_URL']}/users/{get_jwt_identity()}')
+    return redirect(f'{app.config["REACT_APP_URL"]}/users/{get_jwt_identity()}')
 
 
 @api.route('/discord/disconnect', methods=['POST'])
