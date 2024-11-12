@@ -1,9 +1,8 @@
 from enum import Enum
-from operator import index
 
-from server import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from server.models import db
 
 user_following = db.Table('user_following',
                           db.Column('follower_id', db.Integer, db.ForeignKey('user.id')),

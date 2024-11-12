@@ -23,7 +23,6 @@ class SortType(Enum):
     HOT = 'hot'
 
 
-
 def _new_sort() -> _SortFunction:
     score_expr = """
         post.created_at DESC
