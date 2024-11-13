@@ -355,7 +355,7 @@ def test_game_info(client, mock_igdb_game_data):
 
     with patch.object(routes, 'get_game') as mock_get_game:
         mock_get_game.return_value = mock_igdb_game_data
-        response = client.get(f'/api/game-info/{mock_igdb_game_data['id']}')
+        response = client.get(f'/api/game-info/{mock_igdb_game_data["id"]}')
 
         assert response.status_code == 200
         assert response.json['game']['name'] == 'Test Game'
