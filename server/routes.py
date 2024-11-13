@@ -348,7 +348,12 @@ def validate_sort_type(sort_type: str) -> tuple[str, bool]:
     if sort_type is None:
         # Default to 'hot' sorting
         sort_type = SortType.HOT.value
-    return sort_type, sort_type in SortType
+    try:
+        SortType(sort_type)
+        valid = True
+    except ValueError:
+        valid = False
+    return sort_type, valid
 
 
 @api.route('/users/<int:user_id>/posts', methods=['GET'])
