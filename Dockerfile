@@ -22,7 +22,7 @@ ENV FLASK_APP=server
 
 RUN echo "#!/bin/bash \
 \nflask db upgrade && \
-\ngunicorn backend:app -w 4 -b 0.0.0.0:8000" > start.sh
+\ngunicorn server:app -w 4 -b 0.0.0.0:8000" > start.sh
 
 RUN chmod +x start.sh
 
