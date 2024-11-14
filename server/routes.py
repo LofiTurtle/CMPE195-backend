@@ -13,6 +13,7 @@ from server.services import fetch_discord_account_data, validate_password
 from server.services.feed_service import get_feed_posts, SortType
 from server.services.games_service import search_igdb_games, get_game, IGDBError, api_response_to_model
 from server.services.media_processing import save_image, delete_image
+from server.services.comment_service import get_comment_tree
 
 
 api = Blueprint('api', __name__, url_prefix='/api')
@@ -370,6 +371,8 @@ def get_user_posts(user_id):
 
 @api.route('/communities/<int:community_id>/posts', methods=['GET'])
 def get_community_posts(community_id):
+    offset = request.args.get('offset', default=0, type=int)
+    limit = request.args.get('limit', default=10, type=int)
     community = Community.query.get(community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
@@ -450,10 +453,29 @@ def get_post_image(post_id):
     else:
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
 
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
+def get_comments(post_id):
+    offset = request.args.get('offset', default=0, type=int)
+    limit = request.args.get('limit', default=10, type=int)
+
+    max_depth = 5
+
+
+    top_level_comments = Comment.query.filter_by(post_id=post_id, parent_id=None).order_by(Comment.created_at).limit(limit).offset(offset).all()
+    
+    comments_tree = [get_comment_tree(comment.id, max_depth=max_depth) for comment in top_level_comments]
+    
+    return jsonify(comments_tree)
+
+    # comments = get_comment_tree_for_post(post_id, limit, offset)
+    # return jsonify([dict(row) for row in comments])
+
 
 @api.route('/comments', methods=['POST'])
 def create_comment():
     content = request.json.get('content', None)
+    created_at = datetime.fromisoformat(request.json.get('created_at', None))
+    parent_id = request.json.get('parent_id', None)
     author_id = request.json.get('author_id', None)
     post_id = request.json.get('post_id', None)
 
@@ -462,6 +484,8 @@ def create_comment():
     else:
         comment = Comment(
             content=content,
+            created_at=created_at,
+            parent_id=parent_id,
             author_id=author_id,
             post_id=post_id
         )
@@ -592,7 +616,7 @@ def discord_callback():
     fetch_discord_account_data(user.id)
 
     # redirect to user's account page
-    return redirect(f'{app.config["REACT_APP_URL"]}/users/{get_jwt_identity()}')
+    return redirect(f"{app.config['REACT_APP_URL']}/users/{get_jwt_identity()}")
 
 
 @api.route('/discord/disconnect', methods=['POST'])

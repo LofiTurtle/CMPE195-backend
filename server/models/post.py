@@ -121,7 +121,7 @@ class Comment(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
     author = db.relationship('User', back_populates='comments', uselist=False)
     post = db.relationship('Post', back_populates='comments', uselist=False)
     likes = db.relationship('User', secondary=comment_likes, back_populates='liked_comments')
@@ -134,6 +134,7 @@ class Comment(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'author_id': self.author.id,
+            'parent_id': self.parent_id,
             'post_id': self.post_id,
             'num_likes': len(self.likes)
         }

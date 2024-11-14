@@ -4,6 +4,7 @@ from datetime import timedelta
 from server import app, db
 from server.models.user import *
 from server.models.post import *
+from datetime import datetime
 
 def stagger_add(objects: list, delay_s: int = .05):
     for obj in objects:
@@ -89,7 +90,17 @@ if __name__ == '__main__':
         comment1 = Comment(content='This is comment 1 on post 2a', post=post2a, author=user1)
         comment2 = Comment(content='This is comment 2 on post 3a', post=post3a, author=user2)
         comment3 = Comment(content='This is comment 3 on post 1a', post=post1a, author=user3)
-
+        comment_group = [
+            Comment(id=4, content='Top-level comment 1', created_at=datetime.strptime('2024-09-15 12:00:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:00:00', '%Y-%m-%d %H:%M:%S'), author_id=1, post_id=1),
+            Comment(id=5, content='Top-level comment 2', created_at=datetime.strptime('2024-09-15 12:10:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:10:00', '%Y-%m-%d %H:%M:%S'), author_id=1, post_id=1),
+            Comment(id=6, content='Reply to comment 1', created_at=datetime.strptime('2024-09-15 12:20:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:20:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=4, post_id=1),
+            Comment(id=7, content='Another reply to comment 1', created_at=datetime.strptime('2024-09-15 12:30:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:30:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=4, post_id=1),
+            Comment(id=8, content='Reply to reply 3', created_at=datetime.strptime('2024-09-15 12:40:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:40:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=6, post_id=1),
+            Comment(id=9, content='Another reply to reply 3', created_at=datetime.strptime('2024-09-15 12:50:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:50:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=6, post_id=1),
+            Comment(id=10, content='Reply to comment 2', created_at=datetime.strptime('2024-09-15 13:00:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:00:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=5, post_id=1),
+            Comment(id=11, content='Reply to reply 7', created_at=datetime.strptime('2024-09-15 13:10:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:10:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=7, post_id=1),
+            Comment(id=12, content='Another reply to reply 7', created_at=datetime.strptime('2024-09-15 13:20:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:20:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=7, post_id=1)
+        ]
         # each user likes all other comments
         comment1.likes.append(user2)
         comment1.likes.append(user3)
@@ -122,6 +133,7 @@ if __name__ == '__main__':
             comment3
         ])
 
+        db.session.add_all(comment_group)
         db.session.commit()
 
         print('Database initialized with test data.')
