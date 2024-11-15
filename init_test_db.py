@@ -1,10 +1,14 @@
 import time
 from datetime import timedelta
 
+from flask_migrate import upgrade, current
+from sqlalchemy import text
+
 from server import app, db
 from server.models.user import *
 from server.models.post import *
 from datetime import datetime
+
 
 def stagger_add(objects: list, delay_s: int = .05):
     for obj in objects:
@@ -13,23 +17,26 @@ def stagger_add(objects: list, delay_s: int = .05):
         time.sleep(delay_s)
 
 
-if __name__ == '__main__':
-    response = input('Are you sure you want to delete and recreate the database with test data? y/n ')
-    if response != 'y' and response != 'Y':
-        print('Aborting...')
-        exit()
-
+def reset_database_schema():
     with app.app_context():
         db.drop_all()
-        db.create_all()
+        with db.engine.connect() as conn:
+            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
+            conn.commit()
+        upgrade()
 
+
+def create_test_data():
+    with app.app_context():
         # 3 default users
         user1 = User(username='user1', password='password1')
         user2 = User(username='user2', password='password2')
         user3 = User(username='user3', password='password3')
 
         # Longer bio for user2
-        user2.profile.bio = 'This is a default bio. However, it has many words in it so it is longer than the other default bios and it may take up more space in the user interface, therefore it is good for testing things.'
+        user2.profile.bio = ('This is a default bio. However, it has many words in it so it is longer than the other '
+                             'default bios and it may take up more space in the user interface, therefore it is good '
+                             'for testing things.')
 
         # everyone else follows user1
         user1.followers.append(user2)
@@ -136,4 +143,17 @@ if __name__ == '__main__':
         db.session.add_all(comment_group)
         db.session.commit()
 
-        print('Database initialized with test data.')
+
+if __name__ == '__main__':
+    response = input('Are you sure you want to delete and recreate the database with test data? y/n ')
+    if response != 'y' and response != 'Y':
+        print('Aborting...')
+        exit()
+
+    print('Deleting and recreating the database...')
+    reset_database_schema()
+
+    print('Inserting test data...')
+    create_test_data()
+
+    print(f'Database initialized with test data.')
