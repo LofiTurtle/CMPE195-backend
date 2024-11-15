@@ -15,7 +15,6 @@ from server.services.games_service import search_igdb_games, get_game, IGDBError
 from server.services.media_processing import save_image, delete_image
 from server.services.comment_service import get_comment_tree
 
-
 api = Blueprint('api', __name__, url_prefix='/api')
 
 
@@ -453,6 +452,7 @@ def get_post_image(post_id):
     else:
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
 
+
 @app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
     offset = request.args.get('offset', default=0, type=int)
@@ -460,11 +460,14 @@ def get_comments(post_id):
 
     max_depth = 5
 
+    top_level_comments = (Comment.query.filter_by(post_id=post_id, parent_id=None)
+                          .order_by(Comment.created_at)
+                          .limit(limit)
+                          .offset(offset)
+                          .all())
 
-    top_level_comments = Comment.query.filter_by(post_id=post_id, parent_id=None).order_by(Comment.created_at).limit(limit).offset(offset).all()
-    
     comments_tree = [get_comment_tree(comment.id, max_depth=max_depth) for comment in top_level_comments]
-    
+
     return jsonify(comments_tree)
 
     # comments = get_comment_tree_for_post(post_id, limit, offset)
@@ -472,21 +475,25 @@ def get_comments(post_id):
 
 
 @api.route('/comments', methods=['POST'])
+@jwt_required()
 def create_comment():
     content = request.json.get('content', None)
-    created_at = datetime.fromisoformat(request.json.get('created_at', None))
     parent_id = request.json.get('parent_id', None)
-    author_id = request.json.get('author_id', None)
+    author_id = get_jwt_identity()
     post_id = request.json.get('post_id', None)
 
     if content is None or author_id is None or post_id is None:
         return jsonify(success=False, msgg='Incomplete comment'), 400
+
+    current_user = User.query.get(author_id)
+    if not current_user:
+        return jsonify(success=False, msg='User not found'), 400
+
     else:
         comment = Comment(
             content=content,
-            created_at=created_at,
             parent_id=parent_id,
-            author_id=author_id,
+            author=current_user,
             post_id=post_id
         )
         db.session.add(comment)
@@ -596,7 +603,8 @@ def discord_callback():
     if not user:
         return jsonify(msg='User not found'), 401
 
-    connected_discord_account = next((account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
+    connected_discord_account = next(
+        (account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
     if connected_discord_account:
         connected_discord_account.access_token = access_token
         connected_discord_account.refresh_token = refresh_token
@@ -626,7 +634,8 @@ def discord_disconnect():
     if not user:
         return jsonify(msg='User not found'), 401
 
-    connected_discord_account = next((account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
+    connected_discord_account = next(
+        (account for account in user.connected_accounts if account.provider == ConnectedService.DISCORD), None)
     if connected_discord_account:
         user.connected_accounts.remove(connected_discord_account)
         db.session.delete(connected_discord_account)
