@@ -470,9 +470,6 @@ def get_comments(post_id):
 
     return jsonify(comments_tree)
 
-    # comments = get_comment_tree_for_post(post_id, limit, offset)
-    # return jsonify([dict(row) for row in comments])
-
 
 @api.route('/comments', methods=['POST'])
 @jwt_required()
@@ -505,6 +502,7 @@ def create_comment():
 
 @api.route('/linked-accounts', methods=['GET'], defaults={'user_id': None})
 @api.route('/linked-accounts/<string:user_id>', methods=['GET'])
+@jwt_required()
 def get_linked_accounts(user_id):
     if user_id is None:
         # TODO use session to get current user ID
