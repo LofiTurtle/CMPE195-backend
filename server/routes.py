@@ -6,6 +6,7 @@ import requests
 from flask import jsonify, request, redirect, send_file, render_template, Blueprint
 from flask_jwt_extended import create_access_token, jwt_required, \
     get_jwt_identity, set_access_cookies, get_jwt, unset_access_cookies
+from sqlalchemy.exc import IntegrityError
 
 from server import app, db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, IgdbGame
@@ -103,7 +104,7 @@ def me():
     return jsonify(user=user.serialize())
 
 
-@api.route('/me', methods=['PATCH', 'POST'])
+@api.route('/me', methods=['PUT'])
 @jwt_required()
 def edit_profile():
     """Takes username, bio, and profile_picture as form data"""
@@ -112,21 +113,24 @@ def edit_profile():
     if not user:
         return jsonify(msg='User not found'), 404
 
-    username = request.form['username']
-    bio = request.form['bio']
-    profile_picture = request.files['profile_picture']
+    username = request.form.get('username', None)
+    bio = request.form.get('bio', None)
+    profile_picture = request.files.get('profile_picture', None)
 
-    if username:
-        user.username = username
     if bio:
         user.profile.bio = bio
-    if profile_picture.filename != '':
+    if profile_picture is not None and profile_picture.filename != '':
         pfp_uuid = save_image(profile_picture)
         delete_image(user.profile.profile_picture_id)
         user.profile.profile_picture_id = pfp_uuid
 
-    db.session.add(user)
-    db.session.commit()
+    try:
+        if username:
+            user.username = username
+        db.session.add(user)
+        db.session.commit()
+    except IntegrityError:
+        return jsonify(msg='Username already taken'), 409
     return jsonify(user=user.serialize())
 
 
