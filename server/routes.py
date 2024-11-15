@@ -130,6 +130,12 @@ def edit_profile():
     return jsonify(user=user.serialize())
 
 
+@api.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify(users=[user.serialize() for user in users])
+
+
 @api.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     user = User.query.filter_by(id=user_id).first()
@@ -334,6 +340,12 @@ def create_community():
 
     db.session.commit()
     return jsonify(community=community.serialize()), 201
+
+
+@api.route('/communities', methods=['GET'])
+def get_communities():
+    communities = Community.query.all()
+    return jsonify(communities=[community.serialize() for community in communities])
 
 
 @api.route('/communities/<int:community_id>', methods=['GET'])
