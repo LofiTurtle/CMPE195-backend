@@ -25,7 +25,7 @@ def reset_database_schema():
         upgrade()
 
 
-def create_test_data():
+def create_test_users():
     with app.app_context():
         # 3 default users
         user1 = User(username='user1', password='password1')
@@ -40,6 +40,16 @@ def create_test_data():
         # everyone else follows user1
         user1.followers.append(user2)
         user3.following.append(user1)
+
+        db.session.add_all([user1, user2, user3])
+        db.session.commit()
+        return user1, user2, user3
+
+
+def create_test_data():
+    with app.app_context():
+        # Get 3 default users
+        user1, user2, user3 = create_test_users()
 
         # IGDB information for Stardew Valley and Elden Ring
         game1 = IgdbGame(
@@ -66,7 +76,6 @@ def create_test_data():
         community1.users.append(user1)
         community1.users.append(user2)
         community1.users.append(user3)
-        community2.users.append(user1)
 
         base_time = datetime.now() - timedelta(days=1)
 
@@ -188,10 +197,6 @@ def create_test_data():
         ]
 
         # add and commit everything
-        db.session.add(user1)
-        db.session.add(user2)
-        db.session.add(user3)
-
         db.session.add(community1)
         db.session.add(community2)
 
