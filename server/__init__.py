@@ -1,7 +1,9 @@
+import os
+
 from flask import Flask
-from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
+
 from server.models import db
 
 app = Flask(__name__)
@@ -15,3 +17,7 @@ jwt = JWTManager(app)
 
 from server.routes import api
 app.register_blueprint(api)
+
+if os.getenv('FLASK_ENV') == 'development':
+    from server.development import dev
+    app.register_blueprint(dev)

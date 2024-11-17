@@ -1,13 +1,12 @@
 import time
 from datetime import timedelta
 
-from flask_migrate import upgrade, current
+from flask_migrate import upgrade
 from sqlalchemy import text
 
-from server import app, db
-from server.models.user import *
+from server import app
 from server.models.post import *
-from datetime import datetime
+from server.models.user import *
 
 
 def stagger_add(objects: list, delay_s: int = .05):
@@ -26,7 +25,7 @@ def reset_database_schema():
         upgrade()
 
 
-def create_test_data():
+def create_test_users():
     with app.app_context():
         # 3 default users
         user1 = User(username='user1', password='password1')
@@ -41,6 +40,16 @@ def create_test_data():
         # everyone else follows user1
         user1.followers.append(user2)
         user3.following.append(user1)
+
+        db.session.add_all([user1, user2, user3])
+        db.session.commit()
+        return user1, user2, user3
+
+
+def create_test_data():
+    with app.app_context():
+        # Get 3 default users
+        user1, user2, user3 = create_test_users()
 
         # IGDB information for Stardew Valley and Elden Ring
         game1 = IgdbGame(
@@ -67,18 +76,67 @@ def create_test_data():
         community1.users.append(user1)
         community1.users.append(user2)
         community1.users.append(user3)
-        community2.users.append(user1)
 
-        # user 1 has 1 post, user 2 has 2, etc.
-        post1a = Post(title='Post 1a', content='This is post 1a', community=community1, author=user1)
-        post2a = Post(title='Post 2a', content='This is post 2a', community=community1, author=user2)
-        post2b = Post(title='Post 2b', content='This is post 2b', community=community1, author=user2)
-        post3a = Post(title='Post 3a', content='This is post 3a', community=community1, author=user3)
-        post3b = Post(title='Post 3b', content='This is post 3b', community=community1, author=user3)
-        post3c = Post(title='Post 3c', content='This is post 3c', community=community1, author=user3)
+        base_time = datetime.now() - timedelta(days=1)
+
+        post1a = Post(
+            title='Post 1a',
+            content='This is post 1a',
+            community=community1,
+            author=user1,
+            created_at=base_time + timedelta(hours=0),
+            updated_at=base_time + timedelta(hours=0)
+        )
+        post2a = Post(
+            title='Post 2a',
+            content='This is post 2a',
+            community=community1,
+            author=user2,
+            created_at=base_time + timedelta(hours=4),
+            updated_at=base_time + timedelta(hours=4)
+        )
+        post2b = Post(
+            title='Post 2b',
+            content='This is post 2b',
+            community=community1,
+            author=user2,
+            created_at=base_time + timedelta(hours=8),
+            updated_at=base_time + timedelta(hours=8)
+        )
+        post3a = Post(
+            title='Post 3a',
+            content='This is post 3a',
+            community=community1,
+            author=user3,
+            created_at=base_time + timedelta(hours=12),
+            updated_at=base_time + timedelta(hours=12)
+        )
+        post3b = Post(
+            title='Post 3b',
+            content='This is post 3b',
+            community=community1,
+            author=user3,
+            created_at=base_time + timedelta(hours=16),
+            updated_at=base_time + timedelta(hours=16)
+        )
+        post3c = Post(
+            title='Post 3c',
+            content='This is post 3c',
+            community=community1,
+            author=user3,
+            created_at=base_time + timedelta(hours=20),
+            updated_at=base_time + timedelta(hours=20)
+        )
 
         # 1 post in Unpopular Community
-        unpopular_post = Post(title='Unpopular Post', content='An unpopular post', community=community2, author=user1)
+        unpopular_post = Post(
+            title='Unpopular Post',
+            content='An unpopular post',
+            community=community2,
+            author=user1,
+            created_at=base_time + timedelta(hours=22),
+            updated_at=base_time + timedelta(hours=22)
+        )
 
         # each user likes lower #'d user's posts
         post1a.likes.append(user2)
@@ -87,44 +145,62 @@ def create_test_data():
         post2b.likes.append(user3)
 
         # Old but highly liked post
-        popular_post = Post(title='Old but popular post', content='Wow', community=community1, author=user1)
-        popular_post.created_at = datetime.now() - timedelta(days=5)
+        popular_post = Post(
+            title='Old but popular post',
+            content='Wow',
+            community=community1,
+            author=user1,
+            created_at=datetime.now() - timedelta(days=5),
+            updated_at=datetime.now() - timedelta(days=5)
+        )
         popular_post.likes.append(user1)
         popular_post.likes.append(user2)
         popular_post.likes.append(user3)
 
-        # each user comments on the next user's #a post
-        comment1 = Comment(content='This is comment 1 on post 2a', post=post2a, author=user1)
-        comment2 = Comment(content='This is comment 2 on post 3a', post=post3a, author=user2)
-        comment3 = Comment(content='This is comment 3 on post 1a', post=post1a, author=user3)
         comment_group = [
-            Comment(id=4, content='Top-level comment 1', created_at=datetime.strptime('2024-09-15 12:00:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:00:00', '%Y-%m-%d %H:%M:%S'), author_id=1, post_id=1),
-            Comment(id=5, content='Top-level comment 2', created_at=datetime.strptime('2024-09-15 12:10:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:10:00', '%Y-%m-%d %H:%M:%S'), author_id=1, post_id=1),
-            Comment(id=6, content='Reply to comment 1', created_at=datetime.strptime('2024-09-15 12:20:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:20:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=4, post_id=1),
-            Comment(id=7, content='Another reply to comment 1', created_at=datetime.strptime('2024-09-15 12:30:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:30:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=4, post_id=1),
-            Comment(id=8, content='Reply to reply 3', created_at=datetime.strptime('2024-09-15 12:40:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:40:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=6, post_id=1),
-            Comment(id=9, content='Another reply to reply 3', created_at=datetime.strptime('2024-09-15 12:50:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 12:50:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=6, post_id=1),
-            Comment(id=10, content='Reply to comment 2', created_at=datetime.strptime('2024-09-15 13:00:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:00:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=5, post_id=1),
-            Comment(id=11, content='Reply to reply 7', created_at=datetime.strptime('2024-09-15 13:10:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:10:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=7, post_id=1),
-            Comment(id=12, content='Another reply to reply 7', created_at=datetime.strptime('2024-09-15 13:20:00', '%Y-%m-%d %H:%M:%S'), updated_at=datetime.strptime('2024-09-15 13:20:00', '%Y-%m-%d %H:%M:%S'), author_id=1, parent_id=7, post_id=1)
+            Comment(id=4, content='Top-level comment 1',
+                    created_at=base_time + timedelta(hours=14),
+                    updated_at=base_time + timedelta(hours=14),
+                    author_id=1, post_id=1),
+            Comment(id=5, content='Top-level comment 2',
+                    created_at=base_time + timedelta(hours=15),
+                    updated_at=base_time + timedelta(hours=15),
+                    author_id=1, post_id=1),
+            Comment(id=6, content='Reply to comment 1',
+                    created_at=base_time + timedelta(hours=16),
+                    updated_at=base_time + timedelta(hours=16),
+                    author_id=1, parent_id=4, post_id=1),
+            Comment(id=7, content='Another reply to comment 1',
+                    created_at=base_time + timedelta(hours=17),
+                    updated_at=base_time + timedelta(hours=17),
+                    author_id=1, parent_id=4, post_id=1),
+            Comment(id=8, content='Reply to reply 3',
+                    created_at=base_time + timedelta(hours=18),
+                    updated_at=base_time + timedelta(hours=18),
+                    author_id=1, parent_id=6, post_id=1),
+            Comment(id=9, content='Another reply to reply 3',
+                    created_at=base_time + timedelta(hours=19),
+                    updated_at=base_time + timedelta(hours=19),
+                    author_id=1, parent_id=6, post_id=1),
+            Comment(id=10, content='Reply to comment 2',
+                    created_at=base_time + timedelta(hours=20),
+                    updated_at=base_time + timedelta(hours=20),
+                    author_id=1, parent_id=5, post_id=1),
+            Comment(id=11, content='Reply to reply 7',
+                    created_at=base_time + timedelta(hours=21),
+                    updated_at=base_time + timedelta(hours=21),
+                    author_id=1, parent_id=7, post_id=1),
+            Comment(id=12, content='Another reply to reply 7',
+                    created_at=base_time + timedelta(hours=22),
+                    updated_at=base_time + timedelta(hours=22),
+                    author_id=1, parent_id=7, post_id=1)
         ]
-        # each user likes all other comments
-        comment1.likes.append(user2)
-        comment1.likes.append(user3)
-        comment2.likes.append(user1)
-        comment2.likes.append(user3)
-        comment3.likes.append(user1)
-        comment3.likes.append(user2)
 
         # add and commit everything
-        db.session.add(user1)
-        db.session.add(user2)
-        db.session.add(user3)
-
         db.session.add(community1)
         db.session.add(community2)
 
-        stagger_add([
+        db.session.add_all([
             post1a,
             post2a,
             post2b,
@@ -132,12 +208,6 @@ def create_test_data():
             post3b,
             post3c,
             unpopular_post,
-        ])
-
-        stagger_add([
-            comment1,
-            comment2,
-            comment3
         ])
 
         db.session.add_all(comment_group)
