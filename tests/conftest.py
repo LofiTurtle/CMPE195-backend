@@ -68,7 +68,7 @@ def test_user(db_session):
 def auth_headers(app, test_user):
     """Create authentication headers for the test user."""
     with app.app_context():
-        access_token = create_access_token(identity=test_user.id)
+        access_token = create_access_token(identity=str(test_user.id))
         return {'Authorization': f'Bearer {access_token}'}
 
 
