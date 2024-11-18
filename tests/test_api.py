@@ -50,7 +50,7 @@ def test_me_post(client, auth_headers):
     """Test updating user profile"""
     new_bio = 'A new bio.'
     new_pfp = create_test_image()
-    response = client.post('/api/me', content_type='multipart/form-data', headers=auth_headers, data={
+    response = client.put('/api/me', content_type='multipart/form-data', headers=auth_headers, data={
         'username': f'{TEST_USERNAME}_edited',
         'bio': new_bio,
         'profile_picture': (new_pfp, 'new_pfp.jpg', 'image/jpg')
