@@ -109,7 +109,7 @@ def me():
 def edit_profile():
     """Takes username, bio, and profile_picture as form data"""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return jsonify(msg='User not found'), 404
 
@@ -150,7 +150,7 @@ def get_user(user_id):
 
 @api.route('/users/<int:user_id>/profile-picture', methods=['GET'])
 def get_user_profile_picture(user_id):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return jsonify(msg='User not found'), 404
     filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
@@ -354,7 +354,7 @@ def get_communities():
 
 @api.route('/communities/<int:community_id>', methods=['GET'])
 def get_community(community_id):
-    community = Community.query.get(community_id)
+    community = db.session.get(Community, community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
     return jsonify(community=community.serialize())
@@ -388,7 +388,7 @@ def get_user_posts(user_id):
 def get_community_posts(community_id):
     offset = request.args.get('offset', default=0, type=int)
     limit = request.args.get('limit', default=10, type=int)
-    community = Community.query.get(community_id)
+    community = db.session.get(Community, community_id)
     if not community:
         return jsonify(msg='Community not found'), 404
     sort_type, valid = validate_sort_type(request.args.get('sort'))
@@ -418,7 +418,7 @@ def get_post(post_id):
     """
     :return: The post with the given ID
     """
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
     if not post:
         return jsonify(msg='Post not found'), 404
     return jsonify(post=post.serialize())
@@ -457,7 +457,7 @@ def create_post():
 
 @api.route('/posts/<int:post_id>/image', methods=['GET'])
 def get_post_image(post_id):
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
     if not post:
         return jsonify(msg='Post not found'), 404
     if post.image_id is None:
@@ -498,7 +498,7 @@ def create_comment():
     if content is None or author_id is None or post_id is None:
         return jsonify(success=False, msgg='Incomplete comment'), 400
 
-    current_user = User.query.get(author_id)
+    current_user = db.session.get(User, author_id)
     if not current_user:
         return jsonify(success=False, msg='User not found'), 400
 
@@ -613,7 +613,7 @@ def discord_callback():
         return jsonify(success=False, msg='Invalid authorization code'), 400
     expires_at = datetime.now() + timedelta(seconds=expires_in)
 
-    user = User.query.get(get_jwt_identity())
+    user = db.session.get(User, get_jwt_identity())
     if not user:
         return jsonify(msg='User not found'), 401
 
@@ -644,7 +644,7 @@ def discord_callback():
 @api.route('/discord/disconnect', methods=['POST'])
 @jwt_required()
 def discord_disconnect():
-    user = User.query.get(get_jwt_identity())
+    user = db.session.get(User, get_jwt_identity())
     if not user:
         return jsonify(msg='User not found'), 401
 
