@@ -43,7 +43,7 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id, fresh=True)
+    access_token = create_access_token(identity=str(user.id), fresh=True)
     response = jsonify(success=True, msg='User created successfully')
     set_access_cookies(response, access_token)
     return response, 201
@@ -65,7 +65,7 @@ def login():
     if not user or not user.check_password(password):
         return jsonify(success=False, msg='Invalid username or password'), 401
 
-    access_token = create_access_token(identity=user.id, fresh=True)
+    access_token = create_access_token(identity=str(user.id), fresh=True)
     response = jsonify(success=True, msg='Logged in successfully')
     set_access_cookies(response, access_token)
     return response, 200
