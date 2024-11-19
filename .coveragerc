@@ -1,0 +1,7 @@
+[run]
+omit =
+    */migrations/*
+    */development/*
+    */tests/*
+    init_test_db.py
+    setup.py
