@@ -1,13 +1,16 @@
 import os
 from unittest.mock import patch
 
-from server import routes
-from server.models import User, Community, ConnectedAccount, ConnectedService
+from flask_jwt_extended import decode_token
+from flask_jwt_extended.exceptions import InvalidHeaderError
+
+from server import routes, db
+from server.models import User, Community, ConnectedAccount, ConnectedService, InvalidatedToken, Comment
 from server.services.games_service import IGDBError
 from tests.conftest import TEST_USERNAME, TEST_PASSWORD, create_test_image
 
 
-def test_register(client, db_session):
+def test_register(client):
     """Test registering an account"""
     response = client.post('/api/register', json={
         'username': f'{TEST_USERNAME}_2',
@@ -15,6 +18,48 @@ def test_register(client, db_session):
     })
 
     assert response.status_code == 201
+
+
+def test_register_missing_username(client):
+    """Test registering an account with missing username"""
+    response = client.post('/api/register', json={
+        'password': TEST_PASSWORD
+    })
+
+    assert response.status_code == 400
+    assert 'Username or password not provided' in response.json.get('msg')
+
+
+def test_register_missing_password(client):
+    """Test registering an account with missing password"""
+    response = client.post('/api/register', json={
+        'username': f'{TEST_USERNAME}'
+    })
+
+    assert response.status_code == 400
+    assert 'Username or password not provided' in response.json.get('msg')
+
+
+def test_register_duplicate_username(client, test_user):
+    """Test registering an account with duplicate username"""
+    response = client.post('/api/register', json={
+        'username': f'{TEST_USERNAME}',
+        'password': TEST_PASSWORD
+    })
+
+    assert response.status_code == 409
+    assert 'Username already taken' in response.json.get('msg')
+
+
+def test_register_invalid_password(client):
+    """Test registering an account with invalid password"""
+    response = client.post('/api/register', json={
+        'username': f'{TEST_USERNAME}',
+        'password': '2short'
+    })
+
+    assert response.status_code == 400
+    assert 'Invalid password' in response.json.get('msg')
 
 
 def test_login(client, test_user):
@@ -27,10 +72,79 @@ def test_login(client, test_user):
     assert response.status_code == 200
 
 
+def test_login_wrong_username(client, test_user):
+    """Test logging in with wrong username"""
+    response = client.post('/api/login', json={
+        'username': f'{TEST_USERNAME}_wrong',
+        'password': TEST_PASSWORD
+    })
+
+    assert response.status_code == 401
+    assert 'Invalid username or password' in response.json.get('msg')
+
+
+def test_login_wrong_password(client, test_user):
+    """Test logging in with wrong password"""
+    response = client.post('/api/login', json={
+        'username': f'{TEST_USERNAME}',
+        'password': 'wrong_password'
+    })
+
+    assert response.status_code == 401
+    assert 'Invalid username or password' in response.json.get('msg')
+
+
+def test_login_missing_username(client, test_user):
+    """Test logging in with missing username"""
+    response = client.post('/api/login', json={
+        'password': TEST_PASSWORD
+    })
+
+    assert response.status_code == 400
+    assert 'Username or password not provided' in response.json.get('msg')
+
+
+def test_login_missing_password(client, test_user):
+    """Test logging in with missing password"""
+    response = client.post('/api/login', json={
+        'username': f'{TEST_USERNAME}'
+    })
+
+    assert response.status_code == 400
+    assert 'Username or password not provided' in response.json.get('msg')
+
+
+def get_jti_from_bearer_token(bearer_token: str) -> str:
+    try:
+        # Remove 'Bearer ' prefix if present
+        if bearer_token.startswith('Bearer '):
+            token = bearer_token[7:]
+        else:
+            token = bearer_token
+
+        decoded_token = decode_token(token)
+
+        return decoded_token['jti']
+
+    except InvalidHeaderError:
+        raise InvalidHeaderError("Invalid token format")
+    except Exception as e:
+        raise Exception(f"Error decoding token: {str(e)}")
+
+
 def test_logout(client, auth_headers):
     """Test logging out"""
     response = client.post('/api/logout', headers=auth_headers)
     assert response.status_code == 200
+
+    # Ensure token is invalidated
+    header_token_id = get_jti_from_bearer_token(auth_headers['Authorization'])
+    db_token_id = db.session.query(InvalidatedToken).first().token_id
+    assert header_token_id == db_token_id
+
+    # Make request with invalidated token
+    invalidated_response = client.get('/api/me', headers=auth_headers)
+    assert invalidated_response.status_code == 401
 
 
 def test_me(client, auth_headers):
@@ -46,7 +160,7 @@ def test_me_unauthorized(client, auth_headers):
     assert response.status_code == 401
 
 
-def test_me_post(client, auth_headers):
+def test_edit_profile(client, auth_headers):
     """Test updating user profile"""
     new_bio = 'A new bio.'
     new_pfp = create_test_image()
@@ -61,43 +175,83 @@ def test_me_post(client, auth_headers):
     assert response.json['user']['profile']['bio'] == new_bio
 
 
-def test_get_followers(client, test_user, auth_headers, db_session):
+def test_edit_profile_duplicate_username(client, auth_headers):
+    """Test updating user profile with duplicate username"""
+    other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
+    db.session.add(other_user)
+    db.session.commit()
+    response = client.put('/api/me', content_type='multipart/form-data', headers=auth_headers, data={
+        'username': f'{TEST_USERNAME}_2',
+        'bio': 'user bio',
+        'profile_picture': (create_test_image(), 'new_pfp.jpg', 'image/jpg')
+    })
+
+    assert response.status_code == 409
+    assert 'Username already taken' in response.json.get('msg')
+
+
+def test_get_users(client, test_user):
+    """Test getting all users"""
+    other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
+    db.session.add(other_user)
+    db.session.commit()
+
+    response = client.get('/api/users')
+    assert response.status_code == 200
+    assert len(response.json.get('users')) == 2
+
+
+def test_get_user(client, test_user):
+    """Test getting a specific user"""
+    response = client.get('/api/users/1')
+    assert response.status_code == 200
+    assert response.json.get('user').get('username') == TEST_USERNAME
+
+
+def test_get_invalid_user(client, test_user):
+    """Test getting an invalid user"""
+    response = client.get('/api/users/999')
+    assert response.status_code == 404
+    assert 'User not found' in response.json.get('msg')
+
+
+def test_get_followers(client, test_user, auth_headers):
     """Test getting the test user's followers'"""
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
     test_user.followers.append(other_user)
-    db_session.add(other_user)
-    db_session.commit()
+    db.session.add(other_user)
+    db.session.commit()
 
     response = client.get(f'/api/users/{test_user.id}/followers', headers=auth_headers)
     assert response.status_code == 200
     assert response.json['users'][0]['username'] == other_user.username
 
 
-def test_get_following(client, test_user, auth_headers, db_session):
+def test_get_following(client, test_user, auth_headers):
     """Test getting the test user's following list'"""
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
     other_user.followers.append(test_user)
-    db_session.add(other_user)
-    db_session.commit()
+    db.session.add(other_user)
+    db.session.commit()
 
     response = client.get(f'/api/users/{test_user.id}/following', headers=auth_headers)
     assert response.status_code == 200
     assert response.json['users'][0]['username'] == other_user.username
 
 
-def test_follow_user(client, test_user, auth_headers, db_session):
+def test_follow_user(client, test_user, auth_headers):
     """Test following another user"""
     # Create another user to follow
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
-    db_session.commit()
+    db.session.add(other_user)
+    db.session.commit()
 
     # Follow the other user
     response = client.post(f'/api/users/{other_user.id}/follow', headers=auth_headers)
     assert response.status_code == 201
 
     # Verify the follow relationship in the database
-    test_user = User.query.get(test_user.id)  # Refresh user from db
+    test_user = db.session.get(User, test_user.id)  # Refresh user from db
     assert other_user in test_user.following
     assert test_user in other_user.followers
 
@@ -116,33 +270,33 @@ def test_follow_self(client, test_user, auth_headers):
     assert response.json['msg'] == 'You cannot follow yourself'
 
 
-def test_follow_already_following(client, test_user, auth_headers, db_session):
+def test_follow_already_following(client, test_user, auth_headers):
     """Test following a user you're already following"""
     # Create another user and establish following relationship
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
+    db.session.add(other_user)
     other_user.followers.append(test_user)
-    db_session.commit()
+    db.session.commit()
 
     # Try to follow again
     response = client.post(f'/api/users/{other_user.id}/follow', headers=auth_headers)
     assert response.status_code == 204
 
 
-def test_unfollow_user(client, test_user, auth_headers, db_session):
+def test_unfollow_user(client, test_user, auth_headers):
     """Test unfollowing a user"""
     # Create another user and establish following relationship
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
+    db.session.add(other_user)
     other_user.followers.append(test_user)
-    db_session.commit()
+    db.session.commit()
 
     # Unfollow the user
     response = client.delete(f'/api/users/{other_user.id}/follow', headers=auth_headers)
     assert response.status_code == 204
 
     # Verify the relationship is removed
-    test_user = User.query.get(test_user.id)  # Refresh user from db
+    test_user = db.session.get(User, test_user.id)  # Refresh user from db
     assert other_user not in test_user.following
     assert test_user not in other_user.followers
 
@@ -161,26 +315,26 @@ def test_unfollow_self(client, test_user, auth_headers):
     assert response.json['msg'] == 'You cannot unfollow yourself'
 
 
-def test_unfollow_not_following(client, test_user, auth_headers, db_session):
+def test_unfollow_not_following(client, test_user, auth_headers):
     """Test unfollowing a user you're not following"""
     # Create another user without following relationship
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
-    db_session.commit()
+    db.session.add(other_user)
+    db.session.commit()
 
     # Try to unfollow
     response = client.delete(f'/api/users/{other_user.id}/follow', headers=auth_headers)
     assert response.status_code == 204
 
 
-def test_get_relationship(client, test_user, auth_headers, db_session):
+def test_get_relationship(client, test_user, auth_headers):
     """Test getting the relationship between two users"""
     # Create another user with bidirectional following
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
+    db.session.add(other_user)
     other_user.followers.append(test_user)  # test_user follows other_user
     other_user.following.append(test_user)  # other_user follows test_user
-    db_session.commit()
+    db.session.commit()
 
     # Get relationship
     response = client.get(f'/api/users/{other_user.id}/relationship', headers=auth_headers)
@@ -189,12 +343,12 @@ def test_get_relationship(client, test_user, auth_headers, db_session):
     assert response.json['followed_by'] is True
 
 
-def test_get_relationship_none(client, test_user, auth_headers, db_session):
+def test_get_relationship_none(client, test_user, auth_headers):
     """Test getting relationship when there is none"""
     # Create another user with no relationship
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
-    db_session.commit()
+    db.session.add(other_user)
+    db.session.commit()
 
     # Get relationship
     response = client.get(f'/api/users/{other_user.id}/relationship', headers=auth_headers)
@@ -203,13 +357,13 @@ def test_get_relationship_none(client, test_user, auth_headers, db_session):
     assert response.json['followed_by'] is False
 
 
-def test_get_relationship_one_way(client, test_user, auth_headers, db_session):
+def test_get_relationship_one_way(client, test_user, auth_headers):
     """Test getting one-way relationship"""
     # Create another user that follows test_user but isn't followed back
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
-    db_session.add(other_user)
+    db.session.add(other_user)
     other_user.following.append(test_user)  # other_user follows test_user
-    db_session.commit()
+    db.session.commit()
 
     # Get relationship
     response = client.get(f'/api/users/{other_user.id}/relationship', headers=auth_headers)
@@ -225,11 +379,11 @@ def test_get_relationship_nonexistent_user(client, auth_headers):
     assert response.json['msg'] == 'User not found'
 
 
-def test_get_user_communities(client, test_user, test_community, auth_headers, db_session):
+def test_get_user_communities(client, test_user, test_community, auth_headers):
     """Test getting communities that a user follows"""
     # Add user to community
     test_user.communities.append(test_community)
-    db_session.commit()
+    db.session.commit()
 
     # Get user's communities
     response = client.get(f'/api/users/{test_user.id}/communities')
@@ -255,11 +409,11 @@ def test_get_user_communities_invalid_user(client, auth_headers):
     assert 'User not found' in response.json['msg']
 
 
-def test_get_community_users(client, test_user, test_community, auth_headers, db_session):
+def test_get_community_users(client, test_user, test_community, auth_headers):
     """Test getting users who follow a community"""
     # Add user to community
     test_community.users.append(test_user)
-    db_session.commit()
+    db.session.commit()
 
     response = client.get(f'/api/communities/{test_community.id}/users')
     assert response.status_code == 200
@@ -297,11 +451,11 @@ def test_follow_community(client, test_user, test_community, auth_headers):
     assert test_user in test_community.users
 
 
-def test_follow_community_already_following(client, test_user, test_community, auth_headers, db_session):
+def test_follow_community_already_following(client, test_user, test_community, auth_headers):
     """Test following a community that the user already follows"""
     # Add user to community first
     test_user.communities.append(test_community)
-    db_session.commit()
+    db.session.commit()
 
     response = client.post(
         f'/api/communities/{test_community.id}/follow',
@@ -317,11 +471,11 @@ def test_follow_community_invalid_community(client, auth_headers):
     assert 'Community not found' in response.json['msg']
 
 
-def test_unfollow_community(client, test_user, test_community, auth_headers, db_session):
+def test_unfollow_community(client, test_user, test_community, auth_headers):
     """Test unfollowing a community"""
     # Add user to community first
     test_user.communities.append(test_community)
-    db_session.commit()
+    db.session.commit()
 
     response = client.delete(
         f'/api/communities/{test_community.id}/follow',
@@ -376,7 +530,7 @@ def test_game_info_not_found(client):
         assert response.json['msg'] == 'Game not found'
 
 
-def test_create_community(client, auth_headers, db_session, mock_igdb_game_data):
+def test_create_community(client, auth_headers, mock_igdb_game_data):
     """Test creating a new community"""
     community_name = "Test Gaming Community"
 
@@ -429,6 +583,12 @@ def test_create_community_unauthorized(client):
     assert response.status_code == 401
 
 
+def test_get_communities(client, test_community):
+    response = client.get(f'/api/communities')
+    assert response.status_code == 200
+    assert response.json['communities'][0]['name'] == test_community.name
+
+
 def test_get_community(client, test_community):
     """Test getting an existing community"""
     response = client.get(f'/api/communities/{test_community.id}')
@@ -438,7 +598,7 @@ def test_get_community(client, test_community):
     assert response.json['community']['game']['name'] == test_community.game.name
 
 
-def test_get_community_not_found(client, db_session):
+def test_get_community_not_found(client):
     """Test getting a non-existent community"""
     response = client.get('/api/communities/999')
 
@@ -483,14 +643,14 @@ def test_get_community_posts_invalid_sort(client, test_community):
     assert 'Invalid sort type' in response.json['msg']
 
 
-def test_get_community_posts_not_found(client, db_session):
+def test_get_community_posts_not_found(client):
     """Test getting posts for a non-existent community"""
     response = client.get('/api/communities/999/posts')
     assert response.status_code == 404
     assert 'Community not found' in response.json['msg']
 
 
-def test_homepage_unauthorized(client, db_session):
+def test_homepage_unauthorized(client):
     """Test getting homepage posts without authentication"""
     response = client.get('/api/homepage')
     assert response.status_code == 401
@@ -521,7 +681,7 @@ def test_get_post(client, test_post):
     assert response.json['post']['content'] == "Test content for the post"
 
 
-def test_get_post_not_found(client, db_session):
+def test_get_post_not_found(client):
     """Test getting a non-existent post"""
     response = client.get('/api/posts/999')
     assert response.status_code == 404
@@ -611,7 +771,33 @@ def test_get_post_image_not_found(client, test_post_with_image, app):
     assert 'Image for post' in response.json['msg']
 
 
-def test_search_communities_by_name(client, db_session, test_game, test_community):
+def test_get_comments(client, test_post_with_comments):
+    """Test getting comments for a post"""
+    response = client.get(f'/api/posts/{test_post_with_comments.id}/comments')
+    assert response.status_code == 200
+    assert len(response.json) == 2
+
+
+def test_create_comment(client, test_post, auth_headers):
+    """Test creating a comment on a post"""
+    response = client.post(f'/api/comments', headers=auth_headers, json={
+        'content': 'A comment',
+        'parent_id': None,
+        'post_id': test_post.id
+    })
+    assert response.status_code == 201
+    assert response.json['comment']['content'] == 'A comment'
+    assert len(test_post.comments) == 1
+
+
+def test_get_comments_no_comments(client, test_post):
+    """Test getting comments for a post without comments"""
+    response = client.get(f'/api/posts/{test_post.id}/comments')
+    assert response.status_code == 200
+    assert len(response.json) == 0
+
+
+def test_search_communities_by_name(client, test_game, test_community):
     """Test searching communities by community name"""
     response = client.get('/api/search/communities?q=Test')
     assert response.status_code == 200
@@ -619,7 +805,7 @@ def test_search_communities_by_name(client, db_session, test_game, test_communit
     assert response.json['communities'][0]['name'] == "Test Community"
 
 
-def test_search_communities_by_game(client, db_session, test_game, test_community):
+def test_search_communities_by_game(client, test_game, test_community):
     """Test searching communities by game name"""
     response = client.get('/api/search/communities?q=Test Game')
     assert response.status_code == 200
@@ -627,21 +813,21 @@ def test_search_communities_by_game(client, db_session, test_game, test_communit
     assert response.json['communities'][0]['game']['name'] == "Test Game"
 
 
-def test_search_communities_no_results(client, db_session):
+def test_search_communities_no_results(client):
     """Test searching communities with no matches"""
     response = client.get('/api/search/communities?q=NonexistentCommunity')
     assert response.status_code == 200
     assert len(response.json['communities']) == 0
 
 
-def test_search_communities_no_query(client, db_session):
+def test_search_communities_no_query(client):
     """Test searching communities without a query parameter"""
     response = client.get('/api/search/communities')
     assert response.status_code == 400
     assert 'msg' in response.json
 
 
-def test_search_users(client, db_session, test_user):
+def test_search_users(client, test_user):
     """Test searching users by username"""
     response = client.get('/api/search/users?q=test')
     assert response.status_code == 200
@@ -649,21 +835,21 @@ def test_search_users(client, db_session, test_user):
     assert response.json['users'][0]['username'] == test_user.username
 
 
-def test_search_users_no_results(client, db_session):
+def test_search_users_no_results(client):
     """Test searching users with no matches"""
     response = client.get('/api/search/users?q=nonexistentuser')
     assert response.status_code == 200
     assert len(response.json['users']) == 0
 
 
-def test_search_users_no_query(client, db_session):
+def test_search_users_no_query(client):
     """Test searching users without a query parameter"""
     response = client.get('/api/search/users')
     assert response.status_code == 400
     assert 'msg' in response.json
 
 
-def test_search_games(client, db_session, mock_igdb_search_response):
+def test_search_games(client, mock_igdb_search_response):
     """Test searching games through IGDB API"""
     with patch('server.routes.search_igdb_games', return_value=mock_igdb_search_response):
         response = client.get('/api/search/games?q=test')
@@ -672,14 +858,14 @@ def test_search_games(client, db_session, mock_igdb_search_response):
         assert response.json['games'][0]['name'] == 'Test Game'
 
 
-def test_search_games_no_query(client, db_session):
+def test_search_games_no_query(client):
     """Test searching games without a query parameter"""
     response = client.get('/api/search/games')
     assert response.status_code == 400
     assert 'msg' in response.json
 
 
-def test_search_games_api_error(client, db_session):
+def test_search_games_api_error(client):
     """Test handling of IGDB API errors"""
     with patch('server.routes.search_igdb_games', side_effect=IGDBError('API Error')):
         response = client.get('/api/search/games?q=test')
@@ -706,7 +892,7 @@ def test_discord_connect_unauthorized(client):
 
 
 @patch('requests.post')
-def test_discord_callback_success(mock_token_request, client, auth_headers, test_user, app, db_session):
+def test_discord_callback_success(mock_token_request, client, auth_headers, test_user, app):
     """Test successful Discord OAuth callback"""
     # Mock Discord's token response
     mock_token_response = {
@@ -742,7 +928,7 @@ def test_discord_callback_success(mock_token_request, client, auth_headers, test
 
 @patch('requests.post')
 def test_discord_callback_existing_connection(
-    mock_token_request, client, auth_headers, test_user, app, db_session
+    mock_token_request, client, auth_headers, test_user, app
 ):
     """Test Discord callback with existing connection updates tokens"""
     # Create existing Discord connection
@@ -753,8 +939,8 @@ def test_discord_callback_existing_connection(
         access_token='old_token',
         refresh_token='old_refresh_token'
     )
-    db_session.add(existing_account)
-    db_session.commit()
+    db.session.add(existing_account)
+    db.session.commit()
 
     # Mock Discord's token response
     mock_token_response = {
@@ -810,7 +996,7 @@ def test_discord_callback_unauthorized(client):
     assert response.status_code == 401
 
 
-def test_discord_disconnect(client, auth_headers, test_user, db_session):
+def test_discord_disconnect(client, auth_headers, test_user):
     """Test disconnecting Discord account"""
     # Create Discord connection
     discord_account = ConnectedAccount(
@@ -820,8 +1006,8 @@ def test_discord_disconnect(client, auth_headers, test_user, db_session):
         access_token='test_token',
         refresh_token='test_refresh'
     )
-    db_session.add(discord_account)
-    db_session.commit()
+    db.session.add(discord_account)
+    db.session.commit()
 
     response = client.post('/api/discord/disconnect', headers=auth_headers)
     assert response.status_code == 200

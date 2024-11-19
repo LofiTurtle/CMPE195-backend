@@ -1,16 +1,15 @@
 import io
 import os
 import shutil
+from datetime import timedelta, datetime
 
 import pytest
 from PIL import Image
 from dotenv import load_dotenv
-from flask import Flask
-from flask_jwt_extended import JWTManager, create_access_token
-from sqlalchemy.orm import scoped_session
+from flask_jwt_extended import create_access_token
 
-from server.models import db, User, IgdbGame, Community, Post
-from server import app as global_app
+from server import create_app, db
+from server.models import User, IgdbGame, Community, Post, Comment
 
 TEST_USERNAME = 'test_user'
 TEST_PASSWORD = '<PASSWORD>'
@@ -21,47 +20,46 @@ load_dotenv('../.flaskenv')
 
 @pytest.fixture(scope='session')
 def app():
-    app = Flask(__name__)
-    app.config.from_pyfile('../server/config.py')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['TESTING'] = True
-    app.config['DEBUG'] = True
-    app.config['PROPAGATE_EXCEPTIONS'] = True
+    """Create application for the tests."""
+    test_config = {
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'TESTING': True,
+        'DEBUG': True,
+        'PROPAGATE_EXCEPTIONS': True
+    }
 
-    global_app.config = app.config
+    _app = create_app(test_config)
 
-    db.init_app(app)
-    jwt = JWTManager(app)
+    with _app.app_context():
+        db.create_all()
+        yield _app
+        db.drop_all()
 
-    from server.routes import api
-    app.register_blueprint(api)
-
-    yield app
-
-    if os.path.exists(app.config['UPLOAD_DIRECTORY']):
-        shutil.rmtree(app.config['UPLOAD_DIRECTORY'])
+        # if os.path.exists(_app.config['UPLOAD_DIRECTORY']):
+        #     shutil.rmtree(_app.config['UPLOAD_DIRECTORY'])
 
 
-@pytest.fixture(scope='function')
-def db_session(app):
-    """Create a fresh database session for each test."""
+@pytest.fixture(autouse=True)
+def db_transaction(app):
+    """Create a fresh transaction for each test."""
     with app.app_context():
         db.create_all()
-        session = scoped_session(db.session.registry)
-        yield session
-        session.remove()
+        yield
         db.drop_all()
 
 
 @pytest.fixture
-def test_user(db_session):
-    """Create a test user that stays attached to the session."""
-    user = User(username=TEST_USERNAME, password=TEST_PASSWORD)
-    db_session.add(user)
-    db_session.commit()
+def client(app):
+    return app.test_client()
 
-    # Return the user directly from the session to ensure it's attached
-    return db_session.get(User, user.id)
+
+@pytest.fixture
+def test_user(app):
+    """Create a test user."""
+    user = User(username=TEST_USERNAME, password=TEST_PASSWORD)
+    db.session.add(user)
+    db.session.commit()
+    return user
 
 
 @pytest.fixture
@@ -73,75 +71,114 @@ def auth_headers(app, test_user):
 
 
 @pytest.fixture
-def client(app):
-    return app.test_client()
-
-
-@pytest.fixture
-def test_game(app, db_session):
+def test_game(app):
     """Create a test game for the community"""
-    with app.app_context():
-        game = IgdbGame(
-            name="Test Game",
-            cover="test_cover",
-            artwork="test_artwork",
-            summary="A test game for testing communities"
-        )
-        db_session.add(game)
-        db_session.commit()
-        return db_session.get(IgdbGame, game.id)
+    game = IgdbGame(
+        name="Test Game",
+        cover="test_cover",
+        artwork="test_artwork",
+        summary="A test game for testing communities"
+    )
+    db.session.add(game)
+    db.session.commit()
+    return game
 
 
 @pytest.fixture
-def test_community(app, test_user, test_game, db_session):
+def test_community(app, test_user, test_game):
     """Create a test community"""
-    with app.app_context():
-        community = Community(
-            name="Test Community",
-            igbd_id=test_game.id,
-            owner_id=test_user.id
-        )
-        db_session.add(community)
-        db_session.commit()
-        return db_session.get(Community, community.id)
+    community = Community(
+        name="Test Community",
+        igbd_id=test_game.id,
+        owner_id=test_user.id
+    )
+    db.session.add(community)
+    db.session.commit()
+    return community
 
 
 @pytest.fixture
-def test_post(app, test_user, test_community, db_session):
+def test_post(app, test_user, test_community):
     """Create a test post"""
-    with app.app_context():
-        post = Post(
-            title="Test Post",
-            content="Test content for the post",
-            community_id=test_community.id,
-            author_id=test_user.id
-        )
-        db_session.add(post)
-        db_session.commit()
-        return db_session.get(Post, post.id)
+    post = Post(
+        title="Test Post",
+        content="Test content for the post",
+        community_id=test_community.id,
+        author_id=test_user.id
+    )
+    db.session.add(post)
+    db.session.commit()
+    return post
 
 
 @pytest.fixture
-def test_post_with_image(app, test_user, test_community, db_session):
+def test_post_with_image(app, test_user, test_community):
     """Create a test post with an image"""
-    with app.app_context():
-        post = Post(
-            title="Test Post with Image",
-            content="Test content with image",
-            community_id=test_community.id,
-            author_id=test_user.id,
-            image_id="test-image-id"
-        )
+    post = Post(
+        title="Test Post with Image",
+        content="Test content with image",
+        community_id=test_community.id,
+        author_id=test_user.id,
+        image_id="test-image-id"
+    )
 
-        # Create a test image file
-        image_path = os.path.join(app.config['UPLOAD_DIRECTORY'], 'test-image-id.jpg')
-        os.makedirs(os.path.dirname(image_path), exist_ok=True)
-        img = Image.new('RGB', (100, 100), color='red')
-        img.save(image_path)
+    # Create a test image file
+    image_path = os.path.join(app.config['UPLOAD_DIRECTORY'], 'test-image-id.jpg')
+    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    img = Image.new('RGB', (100, 100), color='red')
+    img.save(image_path)
 
-        db_session.add(post)
-        db_session.commit()
-        return db_session.get(Post, post.id)
+    db.session.add(post)
+    db.session.commit()
+    yield post
+    if os.path.exists(image_path):
+        os.remove(image_path)
+
+
+@pytest.fixture
+def test_post_with_comments(app, test_user, test_post):
+    base_time = datetime.now() - timedelta(days=1)
+    comment_group = [
+        Comment(id=4, content='Top-level comment 1',
+                created_at=base_time + timedelta(hours=14),
+                updated_at=base_time + timedelta(hours=14),
+                author=test_user, post=test_post),
+        Comment(id=5, content='Top-level comment 2',
+                created_at=base_time + timedelta(hours=15),
+                updated_at=base_time + timedelta(hours=15),
+                author=test_user, post=test_post),
+        Comment(id=6, content='Reply to comment 1',
+                created_at=base_time + timedelta(hours=16),
+                updated_at=base_time + timedelta(hours=16),
+                author=test_user, parent_id=4, post=test_post),
+        Comment(id=7, content='Another reply to comment 1',
+                created_at=base_time + timedelta(hours=17),
+                updated_at=base_time + timedelta(hours=17),
+                author=test_user, parent_id=4, post=test_post),
+        Comment(id=8, content='Reply to reply 3',
+                created_at=base_time + timedelta(hours=18),
+                updated_at=base_time + timedelta(hours=18),
+                author=test_user, parent_id=6, post=test_post),
+        Comment(id=9, content='Another reply to reply 3',
+                created_at=base_time + timedelta(hours=19),
+                updated_at=base_time + timedelta(hours=19),
+                author=test_user, parent_id=6, post=test_post),
+        Comment(id=10, content='Reply to comment 2',
+                created_at=base_time + timedelta(hours=20),
+                updated_at=base_time + timedelta(hours=20),
+                author=test_user, parent_id=5, post=test_post),
+        Comment(id=11, content='Reply to reply 7',
+                created_at=base_time + timedelta(hours=21),
+                updated_at=base_time + timedelta(hours=21),
+                author=test_user, parent_id=7, post=test_post),
+        Comment(id=12, content='Another reply to reply 7',
+                created_at=base_time + timedelta(hours=22),
+                updated_at=base_time + timedelta(hours=22),
+                author=test_user, parent_id=7, post=test_post)
+    ]
+    db.session.add_all(comment_group)
+    db.session.commit()
+    return test_post
 
 
 @pytest.fixture
