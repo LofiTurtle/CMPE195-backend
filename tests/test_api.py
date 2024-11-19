@@ -215,6 +215,12 @@ def test_get_invalid_user(client, test_user):
     assert 'User not found' in response.json.get('msg')
 
 
+def test_get_user_profile_picture(client, test_user_with_profile_picture):
+    """Test getting user's profile picture"""
+    response = client.get('/api/users/1/profile-picture')
+    assert response.status_code == 200
+
+
 def test_get_followers(client, test_user, auth_headers):
     """Test getting the test user's followers'"""
     other_user = User(username=f'{TEST_USERNAME}_2', password=TEST_PASSWORD)
