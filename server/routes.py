@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 from operator import or_
 
 import requests
-from flask import jsonify, request, redirect, send_file, render_template, Blueprint
+from flask import jsonify, request, redirect, send_file, render_template, Blueprint, current_app
 from flask_jwt_extended import create_access_token, jwt_required, \
     get_jwt_identity, set_access_cookies, get_jwt, unset_access_cookies
 from sqlalchemy.exc import IntegrityError
 
-from server import app, db, jwt
+from server import db, jwt
 from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, IgdbGame
 from server.services import fetch_discord_account_data, validate_password
 from server.services.feed_service import get_feed_posts, SortType
@@ -153,11 +153,11 @@ def get_user_profile_picture(user_id):
     user = db.session.get(User, user_id)
     if not user:
         return jsonify(msg='User not found'), 404
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
+    filepath = os.path.abspath(os.path.join(current_app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
     if os.path.exists(filepath):
         return send_file(filepath, mimetype='image/jpeg')
     else:
-        default_profile_filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], 'default-profile.png'))
+        default_profile_filepath = os.path.abspath(os.path.join(current_app.config['UPLOAD_DIRECTORY'], 'default-profile.png'))
         return send_file(default_profile_filepath, mimetype='image/png')
 
 
@@ -447,7 +447,7 @@ def create_post():
         image_uuid = save_image(image)
         post.image_id = image_uuid
 
-    app.logger.info(post)
+    current_app.logger.info(post)
     db.session.add(post)
     db.session.commit()
 
@@ -462,14 +462,14 @@ def get_post_image(post_id):
         return jsonify(msg='Post not found'), 404
     if post.image_id is None:
         return jsonify(msg='Post has no associated image'), 404
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], post.image_id + '.jpg'))
+    filepath = os.path.abspath(os.path.join(current_app.config['UPLOAD_DIRECTORY'], post.image_id + '.jpg'))
     if os.path.exists(filepath):
         return send_file(filepath, mimetype='image/jpeg')
     else:
         return jsonify(msg=f'Image for post with ID "{post_id}" not found'), 404
 
 
-@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
+@api.route('/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
     offset = request.args.get('offset', default=0, type=int)
     limit = request.args.get('limit', default=10, type=int)
@@ -578,12 +578,12 @@ def search_games():
 @jwt_required()
 def discord_connect():
     params = {
-        'client_id': app.config['DISCORD_CLIENT_ID'],
-        'redirect_uri': app.config['DISCORD_REDIRECT_URI'],
+        'client_id': current_app.config['DISCORD_CLIENT_ID'],
+        'redirect_uri': current_app.config['DISCORD_REDIRECT_URI'],
         'response_type': 'code',
-        'scope': ' '.join(app.config['DISCORD_SCOPES'])
+        'scope': ' '.join(current_app.config['DISCORD_SCOPES'])
     }
-    authorization_url = app.config['DISCORD_AUTH_URL'] + '?' + '&'.join([f'{k}={v}' for k, v in params.items()])
+    authorization_url = current_app.config['DISCORD_AUTH_URL'] + '?' + '&'.join([f'{k}={v}' for k, v in params.items()])
     return redirect(authorization_url)
 
 
@@ -592,16 +592,16 @@ def discord_connect():
 def discord_callback():
     code = request.args.get('code')
     data = {
-        'client_id': app.config['DISCORD_CLIENT_ID'],
-        'client_secret': app.config['DISCORD_CLIENT_SECRET'],
+        'client_id': current_app.config['DISCORD_CLIENT_ID'],
+        'client_secret': current_app.config['DISCORD_CLIENT_SECRET'],
         'grant_type': 'authorization_code',
         'code': code,
-        'redirect_uri': app.config['DISCORD_REDIRECT_URI']
+        'redirect_uri': current_app.config['DISCORD_REDIRECT_URI']
     }
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
     }
-    response = requests.post(app.config['DISCORD_TOKEN_URL'], data=data, headers=headers)
+    response = requests.post(current_app.config['DISCORD_TOKEN_URL'], data=data, headers=headers)
     token_data = response.json()
 
     # TODO save token to database & fetch initial info
@@ -638,7 +638,7 @@ def discord_callback():
     fetch_discord_account_data(user.id)
 
     # redirect to user's account page
-    return redirect(f'{app.config["REACT_APP_URL"]}/users/{get_jwt_identity()}')
+    return redirect(f'{current_app.config["REACT_APP_URL"]}/users/{get_jwt_identity()}')
 
 
 @api.route('/discord/disconnect', methods=['POST'])

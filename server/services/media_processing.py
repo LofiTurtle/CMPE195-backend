@@ -2,8 +2,8 @@ import os
 import uuid
 
 from PIL import Image
+from flask import current_app
 
-from server import app
 from server.models import User
 
 
@@ -11,7 +11,7 @@ def save_image(image, max_size: int = 512) -> str:
     """Save a profile picture and return its UUID"""
     pfp_uuid = str(uuid.uuid4())
     filename = pfp_uuid + '.jpg'
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], filename))
+    filepath = os.path.abspath(os.path.join(current_app.config['UPLOAD_DIRECTORY'], filename))
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     pfp = Image.open(image)
@@ -37,6 +37,6 @@ def save_image(image, max_size: int = 512) -> str:
 
 def delete_image(image_id: str) -> None:
     """Delete a profile picture"""
-    filepath = os.path.abspath(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{image_id}.jpg'))
+    filepath = os.path.abspath(os.path.join(current_app.config['UPLOAD_DIRECTORY'], f'{image_id}.jpg'))
     if os.path.exists(filepath):
         os.remove(filepath)

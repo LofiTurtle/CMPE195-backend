@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from server.models import db
+from server import db
 
 
 post_likes = db.Table('post_likes',
