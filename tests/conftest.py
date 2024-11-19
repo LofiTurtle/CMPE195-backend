@@ -63,6 +63,26 @@ def test_user(app):
 
 
 @pytest.fixture
+def test_user_with_profile_picture(app, test_user):
+    """Create a test user with a profile picture."""
+    test_user.profile.profile_picture_id = 'pfp_id'
+
+    # Create the test profile picture
+    image_path = os.path.join(app.config['UPLOAD_DIRECTORY'], 'pfp_id.jpg')
+    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    img = Image.new('RGB', (100, 100), color='red')
+    img.save(image_path)
+
+    db.session.add(test_user)
+    db.session.commit()
+
+    yield test_user
+
+    if os.path.exists(image_path):
+        os.remove(image_path)
+
+
+@pytest.fixture
 def auth_headers(app, test_user):
     """Create authentication headers for the test user."""
     with app.app_context():
