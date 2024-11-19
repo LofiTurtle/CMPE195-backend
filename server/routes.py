@@ -115,14 +115,20 @@ def edit_profile():
 
     username = request.form.get('username', None)
     bio = request.form.get('bio', None)
+    email = request.form.get('email', None)
     profile_picture = request.files.get('profile_picture', None)
+    newPassword = request.form.get('password', None)
 
+    if email:
+        user.email = email
     if bio:
         user.profile.bio = bio
     if profile_picture is not None and profile_picture.filename != '':
         pfp_uuid = save_image(profile_picture)
         delete_image(user.profile.profile_picture_id)
         user.profile.profile_picture_id = pfp_uuid
+    if newPassword:
+        user.set_password(newPassword)
 
     try:
         if username:
