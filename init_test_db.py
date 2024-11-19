@@ -1,10 +1,10 @@
 import time
 from datetime import timedelta
 
+from flask import current_app
 from flask_migrate import upgrade
 from sqlalchemy import text
 
-from server import app
 from server.models.post import *
 from server.models.user import *
 
@@ -17,7 +17,7 @@ def stagger_add(objects: list, delay_s: int = .05):
 
 
 def reset_database_schema():
-    with app.app_context():
+    with current_app.app_context():
         db.drop_all()
         with db.engine.connect() as conn:
             conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
@@ -26,7 +26,7 @@ def reset_database_schema():
 
 
 def create_test_users():
-    with app.app_context():
+    with current_app.app_context():
         # 3 default users
         user1 = User(username='user1', password='password1')
         user2 = User(username='user2', password='password2')
@@ -47,7 +47,7 @@ def create_test_users():
 
 
 def create_test_data():
-    with app.app_context():
+    with current_app.app_context():
         # Get 3 default users
         user1, user2, user3 = create_test_users()
 

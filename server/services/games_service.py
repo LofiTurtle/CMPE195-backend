@@ -2,8 +2,8 @@ import time
 from datetime import datetime
 
 import requests
+from flask import current_app
 
-from server import app
 from server.models import IgdbGame
 
 
@@ -20,8 +20,8 @@ class IGDBTokenHandler:
     def get_token(self):
         if not self._token or not self._expires or time.time() > self._expires:
             response = requests.post(f'https://id.twitch.tv/oauth2/token?'
-                                     f'client_id={app.config["IGDB_CLIENT_ID"]}&'
-                                     f'client_secret={app.config["IGDB_CLIENT_SECRET"]}&'
+                                     f'client_id={current_app.config["IGDB_CLIENT_ID"]}&'
+                                     f'client_secret={current_app.config["IGDB_CLIENT_SECRET"]}&'
                                      f'grant_type=client_credentials')
             self._token = response.json()['access_token']
             self._expires = time.time() + response.json()['expires_in']
@@ -29,7 +29,7 @@ class IGDBTokenHandler:
 
     def get_headers(self):
         return {
-            'Client-ID': app.config['IGDB_CLIENT_ID'],
+            'Client-ID': current_app.config['IGDB_CLIENT_ID'],
             'Authorization': f'Bearer {self.get_token()}',
         }
 
