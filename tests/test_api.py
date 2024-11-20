@@ -5,7 +5,7 @@ from flask_jwt_extended import decode_token
 from flask_jwt_extended.exceptions import InvalidHeaderError
 
 from server import routes, db
-from server.models import User, Community, ConnectedAccount, ConnectedService, InvalidatedToken, Comment
+from server.models import User, Community, ConnectedAccount, ConnectedService, InvalidatedToken, Comment, Post
 from server.services.games_service import IGDBError
 from tests.conftest import TEST_USERNAME, TEST_PASSWORD, create_test_image
 
@@ -160,7 +160,7 @@ def test_me_unauthorized(client, auth_headers):
     assert response.status_code == 401
 
 
-def test_edit_profile(client, auth_headers):
+def test_edit_profile(client, auth_headers, app):
     """Test updating user profile"""
     new_bio = 'A new bio.'
     new_pfp = create_test_image()
@@ -174,6 +174,11 @@ def test_edit_profile(client, auth_headers):
     assert response.json['user']['username'] == TEST_USERNAME + '_edited'
     assert response.json['user']['profile']['bio'] == new_bio
 
+    # Clean up image
+    user = db.session.get(User, response.json['user']['id'])
+    if os.path.exists(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg')):
+        os.remove(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{user.profile.profile_picture_id}.jpg'))
+
 
 def test_edit_profile_duplicate_username(client, auth_headers):
     """Test updating user profile with duplicate username"""
@@ -182,8 +187,7 @@ def test_edit_profile_duplicate_username(client, auth_headers):
     db.session.commit()
     response = client.put('/api/me', content_type='multipart/form-data', headers=auth_headers, data={
         'username': f'{TEST_USERNAME}_2',
-        'bio': 'user bio',
-        'profile_picture': (create_test_image(), 'new_pfp.jpg', 'image/jpg')
+        'bio': 'user bio'
     })
 
     assert response.status_code == 409
@@ -709,7 +713,7 @@ def test_create_post(client, auth_headers, test_community):
     assert response.json['post']['content'] == 'New test content'
 
 
-def test_create_post_with_image(client, auth_headers, test_community):
+def test_create_post_with_image(client, auth_headers, test_community, app):
     """Test creating a new post with an image"""
     test_image = create_test_image()
     response = client.post('/api/posts',
@@ -724,6 +728,11 @@ def test_create_post_with_image(client, auth_headers, test_community):
     assert response.status_code == 201
     assert response.json['post']['title'] == 'Post with Image'
     assert response.json['post']['media'] == 'image'
+
+    # Clean up image
+    post = db.session.get(Post, response.json['post']['id'])
+    if os.path.exists(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{post.image_id}.jpg')):
+        os.remove(os.path.join(app.config['UPLOAD_DIRECTORY'], f'{post.image_id}.jpg'))
 
 
 def test_create_post_missing_fields(client, auth_headers):
