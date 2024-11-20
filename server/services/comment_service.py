@@ -1,8 +1,9 @@
+from server import db
 from server.models import Comment
 
 
 def get_comment_tree(comment_id, current_depth=1, max_depth=5):
-    comment = Comment.query.get(comment_id)
+    comment = db.session.get(Comment, comment_id)
     if not comment:
         return None
 
