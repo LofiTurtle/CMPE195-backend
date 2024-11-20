@@ -194,7 +194,23 @@ def test_post_with_comments(app, test_user, test_post):
         Comment(id=12, content='Another reply to reply 7',
                 created_at=base_time + timedelta(hours=22),
                 updated_at=base_time + timedelta(hours=22),
-                author=test_user, parent_id=7, post=test_post)
+                author=test_user, parent_id=7, post=test_post),
+        Comment(id=13, content='Reply to 12',
+                created_at=base_time + timedelta(hours=23),
+                updated_at=base_time + timedelta(hours=23),
+                author=test_user, parent_id=12, post=test_post),
+        Comment(id=14, content='Reply to 13',
+                created_at=base_time + timedelta(hours=24),
+                updated_at=base_time + timedelta(hours=24),
+                author=test_user, parent_id=13, post=test_post),
+        Comment(id=15, content='Reply to 14',
+                created_at=base_time + timedelta(hours=25),
+                updated_at=base_time + timedelta(hours=25),
+                author=test_user, parent_id=14, post=test_post),
+        Comment(id=16, content='Reply to 15',
+                created_at=base_time + timedelta(hours=26),
+                updated_at=base_time + timedelta(hours=26),
+                author=test_user, parent_id=15, post=test_post)
     ]
     db.session.add_all(comment_group)
     db.session.commit()

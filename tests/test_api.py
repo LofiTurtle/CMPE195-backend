@@ -5,7 +5,7 @@ from flask_jwt_extended import decode_token
 from flask_jwt_extended.exceptions import InvalidHeaderError
 
 from server import routes, db
-from server.models import User, Community, ConnectedAccount, ConnectedService, InvalidatedToken, Comment, Post
+from server.models import User, Community, ConnectedAccount, ConnectedService, InvalidatedToken, Comment
 from server.services.games_service import IGDBError
 from tests.conftest import TEST_USERNAME, TEST_PASSWORD, create_test_image
 

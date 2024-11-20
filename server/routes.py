@@ -481,7 +481,7 @@ def get_comments(post_id):
 
     max_depth = 5
 
-    top_level_comments = (Comment.query.filter_by(post_id=post_id, parent_id=None)
+    top_level_comments = (db.session.query(Comment).filter_by(post_id=post_id, parent_id=None)
                           .order_by(Comment.created_at)
                           .limit(limit)
                           .offset(offset)
