@@ -107,7 +107,7 @@ def me():
 @api.route('/me', methods=['PUT'])
 @jwt_required()
 def edit_profile():
-    """Takes username, bio, and profile_picture as form data"""
+    """Takes username, bio, password, and profile_picture as form data"""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     if not user:
@@ -115,28 +115,27 @@ def edit_profile():
 
     username = request.form.get('username', None)
     bio = request.form.get('bio', None)
-    email = request.form.get('email', None)
     profile_picture = request.files.get('profile_picture', None)
-    newPassword = request.form.get('password', None)
+    newPassword = request.form.get('password')
 
-    if email:
-        user.email = email
     if bio:
         user.profile.bio = bio
-    if profile_picture is not None and profile_picture.filename != '':
+    if profile_picture and profile_picture.filename != '':
         pfp_uuid = save_image(profile_picture)
         delete_image(user.profile.profile_picture_id)
         user.profile.profile_picture_id = pfp_uuid
+    if username:
+        user.username = username
     if newPassword:
+        print(newPassword)
         user.set_password(newPassword)
 
     try:
-        if username:
-            user.username = username
         db.session.add(user)
         db.session.commit()
     except IntegrityError:
         return jsonify(msg='Username already taken'), 409
+
     return jsonify(user=user.serialize())
 
 
