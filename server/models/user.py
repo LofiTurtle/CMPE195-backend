@@ -65,7 +65,7 @@ class User(db.Model):
             'follower_count': len(self.followers),
             'following_count': len(self.following),
             'communities_count': len(self.communities),
-            'connected_accounts': [account.serialize() for account in self.connected_accounts],
+            'connected_accounts': {str(account.provider.value).lower(): account.serialize() for account in self.connected_accounts},
         }
 
 
@@ -108,9 +108,6 @@ class ConnectedService(Enum):
     STEAM = 'Steam'
 
 
-# TODO separate this into dedicated tables for each service, or expand this table to support more things
-#  e.g. display names
-#  atm, only Discord is supported
 class ConnectedAccount(db.Model):
     """Stores connected accounts for a user"""
     __tablename__ = 'connected_account'
