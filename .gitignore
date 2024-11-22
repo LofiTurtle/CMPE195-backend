@@ -15,5 +15,6 @@ build/
 *.egg-info/
 
 /.env
-/uploads/
+/uploads/*
+!/uploads/default-profile.png
 /tests/uploads/
