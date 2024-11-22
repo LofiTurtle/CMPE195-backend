@@ -38,6 +38,9 @@ class RatingFieldName(Enum):
 
 class RatingField(db.Model):
     __tablename__ = 'rating_field'
+    __table_args__ = (
+        db.UniqueConstraint('rating_id', 'name'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     rating_id = db.Column(db.Integer, db.ForeignKey('rating.id'), nullable=False)
