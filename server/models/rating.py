@@ -30,10 +30,10 @@ class Rating(db.Model):
 
 
 class RatingFieldName(Enum):
-    ATTITUDE = 'attitude'
-    COMMUNICATION = 'communication'
-    RELIABILITY = 'reliability'
-    TEAMWORK = 'teamwork'
+    attitude = 'ATTITUDE'
+    communication = 'COMMUNICATION'
+    reliability = 'RELIABILITY'
+    teamwork = 'TEAMWORK'
 
 
 class RatingField(db.Model):

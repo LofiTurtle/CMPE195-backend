@@ -32,7 +32,7 @@ def upgrade():
     op.create_table('rating_field',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('rating_id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.Enum('ATTITUDE', 'COMMUNICATION', 'RELIABILITY', 'TEAMWORK', name='ratingfieldname'), nullable=False),
+    sa.Column('name', sa.Enum('attitude', 'communication', 'reliability', 'teamwork', name='ratingfieldname'), nullable=False),
     sa.Column('value', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['rating_id'], ['rating.id'], name=op.f('fk_rating_field_rating_id_rating')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_rating_field'))
