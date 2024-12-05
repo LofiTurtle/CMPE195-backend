@@ -16,7 +16,7 @@ class Rating(db.Model):
 
     rating_user = db.relationship('User', back_populates='given_ratings', foreign_keys=rating_user_id, uselist=False)
     rated_user = db.relationship('User', back_populates='received_ratings', foreign_keys=rated_user_id, uselist=False)
-    fields = db.relationship('RatingField', back_populates='rating')
+    fields = db.relationship('RatingField', back_populates='rating', cascade='all, delete-orphan')
 
     def serialize(self):
         return {
@@ -52,6 +52,6 @@ class RatingField(db.Model):
     def serialize(self):
         return {
             'id': self.id,
-            'name': self.name,
+            'name': self.name.name,
             'value': self.value
         }
