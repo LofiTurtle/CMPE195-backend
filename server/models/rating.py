@@ -25,7 +25,8 @@ class Rating(db.Model):
             'rated_user_id': self.rated_user_id,
             'fields': [field.serialize() for field in self.fields],
             'description': self.description,
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
         }
 
 
