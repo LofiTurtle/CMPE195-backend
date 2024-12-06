@@ -21,7 +21,7 @@ class Rating(db.Model):
     def serialize(self):
         return {
             'id': self.id,
-            'rating_user_id': self.rating_user_id,
+            'rating_user': self.rating_user.serialize(),
             'rated_user_id': self.rated_user_id,
             'fields': [field.serialize() for field in self.fields],
             'description': self.description,
