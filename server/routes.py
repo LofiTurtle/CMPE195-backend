@@ -9,7 +9,8 @@ from flask_jwt_extended import create_access_token, jwt_required, \
 from sqlalchemy.exc import IntegrityError
 
 from server import db, jwt
-from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, IgdbGame
+from server.models import User, Post, Comment, InvalidatedToken, Community, ConnectedService, ConnectedAccount, \
+    IgdbGame, Rating, RatingField, RatingFieldName
 from server.services import fetch_discord_account_data, validate_password
 from server.services.feed_service import get_feed_posts, SortType
 from server.services.games_service import search_igdb_games, get_game, IGDBError, api_response_to_model
@@ -662,3 +663,119 @@ def discord_disconnect():
     db.session.commit()
 
     return jsonify(msg='Disconnected from Discord')
+
+
+@api.route('ratings/fields', methods=['GET'])
+def get_ratings_fields():
+    return jsonify(fields=[e.name for e in RatingFieldName])
+
+
+@api.route('/ratings', methods=['GET'])
+def get_user_ratings():
+    giver_user_id = request.args.get('giver', None)
+    receiver_user_id = request.args.get('receiver', None)
+    if giver_user_id is not None and receiver_user_id is not None:
+        rating = Rating.query.filter_by(rating_user_id=giver_user_id, rated_user_id=receiver_user_id).first()
+        if rating is None:
+            return jsonify(msg='Rating not found'), 404
+        return jsonify(rating=rating.serialize())
+    elif giver_user_id is not None:
+        user = db.session.get(User, giver_user_id)
+        if not user:
+            return jsonify(msg='User not found'), 404
+
+        return jsonify(ratings=[rating.serialize() for rating in user.given_ratings])
+    elif receiver_user_id is not None:
+        user = db.session.get(User, receiver_user_id)
+        if not user:
+            return jsonify(msg='User not found'), 404
+
+        return jsonify(ratings=[rating.serialize() for rating in user.received_ratings])
+    else:
+        return jsonify(msg="Either 'giver' or 'receiver' must be provided"), 400
+
+
+@api.route('/ratings/<int:user_id>', methods=['POST'])
+@jwt_required()
+def create_user_rating(user_id):
+    """Create a new rating for a user.
+    Format matches the `fields` and `description` attributes of a serialized Rating object"""
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify(msg=f'User not found: {user_id}'), 404
+
+    current_user = db.session.get(User, get_jwt_identity())
+    if not current_user:
+        return jsonify(msg=f'User not found: {get_jwt_identity()}'), 404
+
+    if current_user.id == user_id:
+        return jsonify(msg='You cannot rate yourself'), 400
+
+    fields = request.json.get('fields', None)
+    description = request.json.get('description', None)
+    if not fields or not description:
+        return jsonify(msg='Missing fields'), 400
+
+    # Use existing rating if it exists
+    rating = Rating.query.filter_by(rated_user_id=user.id, rating_user_id=current_user.id).first()
+    if not rating:
+        # No existing rating, so create a new instance
+        rating = Rating(
+            rating_user=current_user,
+            rated_user=user,
+            description=description
+        )
+
+    rating.description = description
+
+    rating.fields.clear()
+    db.session.add(rating)
+    db.session.flush()
+    rating.fields.extend([RatingField(rating=rating, name=field['name'], value=field['value']) for field in fields])
+    try:
+        db.session.add(rating)
+        db.session.commit()
+    except IntegrityError:
+        return jsonify(msg='Error creating rating'), 400
+
+    return jsonify(ratings=[rating.serialize() for rating in user.received_ratings])
+
+
+@api.route('ratings/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def delete_user_rating(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify(msg=f'User not found: {user_id}'), 404
+
+    current_user = db.session.get(User, get_jwt_identity())
+    if not current_user:
+        return jsonify(msg=f'User not found: {get_jwt_identity()}'), 404
+
+    existing_rating = Rating.query.filter_by(rated_user_id=user.id, rating_user_id=current_user.id).first()
+    if existing_rating:
+        db.session.delete(existing_rating)
+        db.session.commit()
+        return jsonify(msg='Deleted rating'), 200
+
+
+@api.route('ratings/<int:user_id>/summary', methods=['GET'])
+def get_user_ratings_summary(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify(msg=f'User not found: {user_id}'), 404
+
+    summary = {field.name: {'value': 0, 'count': 0} for field in RatingFieldName}
+    for rating in user.received_ratings:
+        for field in rating.fields:
+            summary[field.name.name]['value'] += field.value
+            summary[field.name.name]['count'] += 1
+
+    for field in summary.keys():
+        summary[field]['value'] /= summary[field]['count']
+
+    fields = [{'name': field_name, 'value': summary[field_name]['value']} for field_name in summary.keys()]
+
+    total_rating_count = user.received_ratings.count()
+
+    return jsonify(summary={'fields': fields, 'count': total_rating_count})

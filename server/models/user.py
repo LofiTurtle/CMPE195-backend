@@ -29,6 +29,9 @@ class User(db.Model):
     liked_comments = db.relationship('Comment', secondary='comment_likes', back_populates='likes')
     communities = db.relationship('Community', secondary='user_communities', back_populates='users')
     owned_communities = db.relationship('Community', back_populates='owner')
+    given_ratings = db.relationship('Rating', back_populates='rating_user', foreign_keys='[Rating.rating_user_id]', lazy='dynamic')
+    received_ratings = db.relationship('Rating', back_populates='rated_user', foreign_keys='[Rating.rated_user_id]', lazy='dynamic')
+
     following = db.relationship(
         'User',
         secondary=user_following,
