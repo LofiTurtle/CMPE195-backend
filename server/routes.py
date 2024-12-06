@@ -796,8 +796,14 @@ def get_user_ratings_summary(user_id):
             summary[field.name.name]['value'] += field.value
             summary[field.name.name]['count'] += 1
 
+    has_ratings = False
     for field in summary.keys():
-        summary[field]['value'] /= summary[field]['count']
+        if summary[field]['count'] > 0:
+            has_ratings = True
+            summary[field]['value'] /= summary[field]['count']
+
+    if not has_ratings:
+        return jsonify(summary=None)
 
     fields = [{'name': field_name, 'value': summary[field_name]['value']} for field_name in summary.keys()]
 
