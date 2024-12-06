@@ -774,6 +774,8 @@ def get_user_ratings_summary(user_id):
     for field in summary.keys():
         summary[field]['value'] /= summary[field]['count']
 
+    fields = [{'name': field_name, 'value': summary[field_name]['value']} for field_name in summary.keys()]
+
     total_rating_count = user.received_ratings.count()
 
-    return jsonify(summary=summary, rating_count=total_rating_count)
+    return jsonify(summary={'fields': fields, 'count': total_rating_count})
