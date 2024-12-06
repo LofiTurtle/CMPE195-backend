@@ -315,7 +315,9 @@ def delete_post(post_id):
     db.session.delete(post)
     db.session.commit()
     return jsonify(msg='Post deleted successfully'), 200
-    
+
+
+  
 @api.route('/edit-profile-test', methods=['GET'])
 def edit_profile_test():
     # TODO remove this after profile editing is implemented
@@ -532,6 +534,18 @@ def create_comment():
     response = jsonify(comment=comment.serialize())
     return response, 201
 
+
+@api.route('/comments/<int:comment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_comment(comment_id):
+    """Deletes a comment."""
+    user_id = get_jwt_identity()
+    comment = Comment.query.filter_by(id=comment_id, author_id=user_id).first()
+    if not comment:
+        return jsonify(msg='Comment not found or not authorized'), 404
+    db.session.delete(comment)
+    db.session.commit()
+    return jsonify(msg='Comment deleted successfully'), 200
 
 @api.route('/linked-accounts', methods=['GET'], defaults={'user_id': None})
 @api.route('/linked-accounts/<string:user_id>', methods=['GET'])
