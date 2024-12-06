@@ -304,7 +304,18 @@ def unfollow_community(community_id):
 
     return '', 204
 
-
+@api.route('/posts/<int:post_id>', methods=['DELETE'])
+@jwt_required()
+def delete_post(post_id):
+    """Deletes a post."""
+    user_id = get_jwt_identity()
+    post = Post.query.filter_by(id=post_id, author_id=user_id).first()
+    if not post:
+        return jsonify(msg='Post not found or not authorized'), 404
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify(msg='Post deleted successfully'), 200
+    
 @api.route('/edit-profile-test', methods=['GET'])
 def edit_profile_test():
     # TODO remove this after profile editing is implemented
