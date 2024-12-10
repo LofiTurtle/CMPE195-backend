@@ -489,11 +489,13 @@ def get_post_image(post_id):
 
 
 @api.route('/posts/<int:post_id>/comments', methods=['GET'])
+@jwt_required()
 def get_comments(post_id):
+    user_id = get_jwt_identity()
     offset = request.args.get('offset', default=0, type=int)
     limit = request.args.get('limit', default=10, type=int)
 
-    max_depth = 5
+    max_depth = 100
 
     top_level_comments = (db.session.query(Comment).filter_by(post_id=post_id, parent_id=None)
                           .order_by(Comment.created_at)
@@ -501,7 +503,7 @@ def get_comments(post_id):
                           .offset(offset)
                           .all())
 
-    comments_tree = [get_comment_tree(comment.id, max_depth=max_depth) for comment in top_level_comments]
+    comments_tree = [get_comment_tree(comment.id, current_user_id=user_id, max_depth=max_depth) for comment in top_level_comments]
 
     return jsonify(comments_tree)
 
@@ -810,3 +812,64 @@ def get_user_ratings_summary(user_id):
     total_rating_count = user.received_ratings.count()
 
     return jsonify(summary={'fields': fields, 'count': total_rating_count})
+
+@api.route('/comments/<int:comment_id>/like', methods=['POST'])
+@jwt_required()
+def like_comment(comment_id):
+    """
+    Endpoint to like a comment.
+    """
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({'error': 'user_id is required'}), 400
+
+    # Fetch the comment and user
+    comment = db.session.get(Comment, comment_id)
+    if not comment:
+        return jsonify({'error': 'Comment not found'}), 404
+
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # Check if the user already liked the comment
+    if user in comment.likes:
+        return jsonify({'message': 'Already liked'}), 200
+
+    try:
+        # Add the like
+        comment.likes.append(user)
+        db.session.commit()
+        return jsonify({'message': 'Comment liked', 'num_likes': len(comment.likes)}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@api.route('/comments/<int:comment_id>/unlike', methods=['POST'])
+@jwt_required()
+def dislike_comment(comment_id):
+    """
+    Endpoint to dislike a comment.
+    """
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({'error': 'user_id is required'}), 400
+
+    comment = db.session.get(Comment, comment_id)
+    if not comment:
+        return jsonify({'error': 'Comment not found'}), 404
+
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    if user not in comment.likes:
+        return jsonify({'message': 'Not liked'}), 200
+
+    try:
+        comment.likes.remove(user)
+        db.session.commit()
+        return jsonify({'message': 'Comment disliked', 'num_likes': len(comment.likes)}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
