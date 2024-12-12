@@ -139,6 +139,29 @@ def edit_profile():
 
     return jsonify(user=user.serialize())
 
+@api.route('/me', methods=['PUT'])
+@jwt_required()
+def update_password():
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify(msg='User not found'), 404
+
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+
+    if not current_password or not new_password:
+        return jsonify(msg='Current password and new password are required'), 400
+
+    if not user.check_password(current_password):
+        return jsonify(msg='Current password is incorrect'), 401
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify(msg='Password updated successfully'), 200
+
+
 
 @api.route('/users', methods=['GET'])
 def get_users():
